@@ -3,7 +3,7 @@ rivet-fcgi
 
 # Overview
 
-[FastCGI](https://fastcgi-archives.github.io/) a binary protocol for
+[FastCGI](https://fastcgi-archives.github.io/) is a binary protocol for
 interfacing interactive programs with a web server.
 It is a language-independent protocol based on CGI.
 If you want to write FastCGI application by using [Tcl](https://www.tcl.tk/),
