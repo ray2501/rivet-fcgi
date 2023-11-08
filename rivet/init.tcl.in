@@ -1,0 +1,117 @@
+#
+# init.tcl --
+#
+#
+# Copyright 2002-2017 The Apache Rivet Team
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#	http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+package require @RIVETLIB_PACKAGE@ @RIVETLIB_PACKAGE_VERSION@
+
+# the ::rivet namespace is created in mod_rivet_commoc.c:Rivet_PerInterpInit
+# namespace eval ::rivet {} ; ## create namespace
+namespace eval ::Rivet {} ; ## create namespace
+
+## ::Rivet::init
+##
+## Initialize the interpreter with all that Rivet goodness. This is called
+## once when this file is loaded (down at the bottom) and sets up the interp
+## for all things Rivet.
+
+proc ::Rivet::init {} {
+    set ::Rivet::init [info script]
+    set ::Rivet::root [file dirname $::Rivet::init]
+    set ::Rivet::packages [file join $::Rivet::root packages]
+    set ::Rivet::rivet_tcl [file join $::Rivet::root rivet-tcl]
+
+    ## Setup auto_path within the interp to include all the places
+    ## we've stored Rivet's scripts: rivet-tcl, packages, packages-local,
+    ## packages$tcl_version, init_script_dir, and .
+
+    ## Put these at the head of the list.
+    set ::auto_path [linsert $::auto_path 0 $::Rivet::root \
+        $::Rivet::rivet_tcl $::Rivet::packages $::Rivet::packages-local]
+
+    ## This will allow users to create proc libraries and tclIndex files
+    ## in the local directory that can be autoloaded.
+    ## Perhaps this must go to the front of the list to allow the user
+    ## to override even Rivet's procs.
+    lappend ::auto_path ${::Rivet::packages}${::tcl_version} .
+
+    ## As we moved the command set to the ::rivet namespace we
+    ## still want to guarantee the commands to be accessible
+    ## at the global level by putting them on the export list.
+    ## Importing the ::rivet namespace is deprecated and we should
+    ## make it clear in the manual.
+
+    if {1} {
+
+        namespace eval ::rivet {}
+        set ::rivet::cmd_export_list \
+            [tcl_commands_export_list $::Rivet::rivet_tcl]
+
+        ## init.tcl is run by mod_rivet (which creates the ::rivet
+        ## namespace) but it gets run standalone by mkPkgindex during
+        ## the installation phase. We have to make sure the procedure
+        ## won't fail in this case, so we check for the existence of
+        ## the variable.
+        namespace eval ::rivet {
+            ## Commands in cmd_export_list are prefixed with ::rivet,
+            ## so we have to remove it to build an export list.
+            set export_list [list]
+            foreach c $cmd_export_list {
+                lappend export_list [namespace tail $c]
+            }
+
+            namespace export {*}$export_list
+        }
+    }
+}
+
+
+## ::Rivet::tcl_commands_export_list
+##
+## this is temporary hack to export names of Tcl commands in rivet-tcl/.
+## This function will be removed in future versions of Rivet and it's
+## meant to provide a basic way to guarantee compatibility with older
+## versions of Rivet (see code in ::Rivet::init)
+
+proc ::Rivet::tcl_commands_export_list {tclpath} {
+    # we collect the commands in rivet-tcl by reading the tclIndex
+    # file and then we extract the command list from auto_index
+    namespace eval ::Rivet::temp {}
+    set ::Rivet::temp::tclpath $tclpath
+
+    namespace eval ::Rivet::temp {
+        variable auto_index
+        array set auto_index {}
+
+        # The auto_index in ${tclpath}/tclIndex is loaded.
+        # This array is used to fetch a list of Rivet commands
+        # implemented in Rivet
+
+        set dir $tclpath
+        source [file join $tclpath tclIndex]
+    }
+
+    set commands [namespace eval ::Rivet::temp {array names auto_index}]
+
+    # we won't leave anything behind
+    namespace delete ::Rivet::temp
+
+    return $commands
+}
+
+::Rivet::init
+
+package provide Rivet @RIVET_INIT_VERSION@

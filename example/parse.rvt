@@ -1,0 +1,8 @@
+<html>
+<head>
+<title>Parse test</title>
+<body>
+<h1>Parse test</h1>
+<? ::rivet::parse hello1.rvt ?>
+</body>
+</html>

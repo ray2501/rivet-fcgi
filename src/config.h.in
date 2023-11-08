@@ -1,0 +1,7 @@
+#ifndef _rivet_inline
+#define _rivet_inline
+
+#define VERSION "@VERSION@"
+#define RIVET_INIT_VERSION "@RIVET_INIT_VERSION@"
+#define RIVETLIB_PACKAGE_VERSION "@RIVETLIB_PACKAGE_VERSION@"
+#endif

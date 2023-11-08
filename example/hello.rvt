@@ -1,0 +1,7 @@
+<? set hello_message "Hello world" ?>
+<html>
+  <head>
+    <title><?= $hello_message ?></title>
+  </head>
+  <body><?= [::rivet::html $hello_message pre b] ?></body>
+</html>
