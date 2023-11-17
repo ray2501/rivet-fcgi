@@ -187,3 +187,27 @@ For Tcp socket -
 Then restart service and test.
 
 
+## CGI
+
+If CGI is supported by your web server (and FastCGI is not), it is still
+possible to run rivet-fcgi or FastCGI applications. The method is to use
+'cgi-fcgi' to be a bridge.
+
+Please notice, it is necessary that web server has to pass environment
+variable `SCRIPT_FILENAME` to CGI program.
+
+Write a script `fastcgi` in `/usr/local/bin` folder.
+Thie script must have the execute permission.
+
+Below is an example:
+
+	#!/usr/bin/cgi-fcgi -f
+	-bind -connect 127.0.0.1:9000
+
+Then setup web server, let this script `fastcgi` to be an interpreter
+for your CGI program.
+
+This method maybe has performance impact, but now you can run FastCGI
+applications in your web server.
+
+
