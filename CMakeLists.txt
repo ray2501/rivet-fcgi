@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
-set(VERSION "0.2.0")
+set(VERSION "0.2.1")
 set(RIVETLIB_PACKAGE "rivetlib")
 set(RIVETLIB_PACKAGE_VERSION "3.2")
 set(INIT_VERSION "3.2.3")
