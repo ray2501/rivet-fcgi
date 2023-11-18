@@ -172,6 +172,8 @@ int main(int argc, char *argv[]) {
          */
         pathPtr = Tcl_NewStringObj(filename, -1);
         if (!pathPtr) {
+            printf("Status: 500 Internal Server Error\r\n");
+
             fprintf(stderr, "rivet-fcgi: Something is wrong.\n");
             ret = EXIT_FAILURE;
             goto end;
@@ -179,11 +181,13 @@ int main(int argc, char *argv[]) {
 
         Tcl_IncrRefCount(pathPtr);
         if (Tcl_FSAccess(pathPtr, R_OK)) {
+            printf("Status: 500 Internal Server Error\r\n");
+
             fprintf(stderr, "rivet-fcgi: File cannot read.\n");
             fprintf(stderr, "rivet-fcgi: %s.\n", filename);
             Tcl_DecrRefCount(pathPtr);
-            ret = EXIT_FAILURE;
-            goto end;
+            FCGI_Finish();
+            continue;
         }
         Tcl_DecrRefCount(pathPtr);
 
@@ -200,22 +204,27 @@ int main(int argc, char *argv[]) {
             /*
              * Skip other types.
              */
+            printf("Status: 500 Internal Server Error\r\n");
+
             fprintf(stderr, "rivet-fcgi: Wrong file type.\n");
             Tcl_DecrRefCount(script);
-            ret = EXIT_FAILURE;
-            goto end;
+            FCGI_Finish();
+            continue;
         }
 
         if (result == TCL_OK) {
             /* Send default header for .rvt file */
             if (strcmp(file_ext, ".rvt") == 0) {
-                printf("Content-type:text/html;charset=utf-8\r\n\r\n");
+                printf("Status: 200 OK\r\n");
+                printf("Content-type: text/html; charset=utf-8\r\n\r\n");
             }
         } else {
+            printf("Status: 500 Internal Server Error\r\n");
+
             fprintf(stderr, "rivet-fcgi: Could not read file %s.\n", filename);
             Tcl_DecrRefCount(script);
-            ret = EXIT_FAILURE;
-            goto end;
+            FCGI_Finish();
+            continue;
         }
 
         /*
@@ -230,6 +239,11 @@ int main(int argc, char *argv[]) {
          * If result is not TCL_OK, print error message to stderr.
          */
         if (result != TCL_OK) {
+            /*
+             * Try to send status code.
+             */
+            printf("Status: 500 Internal Server Error\r\n");
+
             fprintf(stderr, "ERROR when eval: %s: %s\n", script,
                     Tcl_GetStringResult(interp));
 

@@ -45,7 +45,7 @@ Below is an example:
 
 When the received file its extension is .rvt file, the header is fixed:
 
-    Content-type:text/html;charset=utf-8
+    Content-type: text/html; charset=utf-8
 
 If file extension is .tcl file, users need to send http headers
 by yourself.
