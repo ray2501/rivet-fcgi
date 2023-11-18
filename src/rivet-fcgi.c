@@ -239,11 +239,6 @@ int main(int argc, char *argv[]) {
          * If result is not TCL_OK, print error message to stderr.
          */
         if (result != TCL_OK) {
-            /*
-             * Try to send status code.
-             */
-            printf("Status: 500 Internal Server Error\r\n");
-
             fprintf(stderr, "ERROR when eval: %s: %s\n", script,
                     Tcl_GetStringResult(interp));
 
