@@ -34,6 +34,15 @@
 #endif /* EXTERN */
 #include "rivetParser.h"
 
+/*
+ * Added Tcl_Size definition
+ */
+#if TCL_MAJOR_VERSION < 9
+    #ifndef Tcl_Size
+        typedef int Tcl_Size;
+    #endif
+#endif
+
 int Rivet_Parser(Tcl_Obj *outbuf, Tcl_Obj *inbuf);
 
 /*
@@ -162,7 +171,7 @@ Rivet_Parser(Tcl_Obj *outbuf, Tcl_Obj *inbuf)
     int endseqlen 	= 	(int) strlen(END_TAG);
     int startseqlen = 	(int) strlen(START_TAG);
     int inside = 0, p = 0, check_echo = 0;
-    int inLen = 0;
+    Tcl_Size inLen = 0;
 
     next = Tcl_GetStringFromObj(inbuf, &inLen);
 

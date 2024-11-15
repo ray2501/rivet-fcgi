@@ -33,6 +33,15 @@
 #define TCL_STORAGE_CLASS DLLEXPORT
 #endif /* BUILD_rivet */
 
+/*
+ * Added Tcl_Size definition
+ */
+#if TCL_MAJOR_VERSION < 9
+    #ifndef Tcl_Size
+        typedef int Tcl_Size;
+    #endif
+#endif
+
 #define MINSTRLEN(s1,s2) strlen(s1) < strlen(s2) ? strlen(s1) : strlen(s2)
 #define STREQU(s1,s2)  (s1[0] == s2[0] && strcmp(s1, s2) == 0)
 #define STRNEQU(s1,s2) (s1[0] == s2[0] && strncmp(s1, s2, strlen(s2)) == 0)
@@ -48,7 +57,7 @@ static int cmd(\
     ClientData clientData,\
     Tcl_Interp *interp,\
     int objc,\
-    Tcl_Obj *CONST objv[])
+    Tcl_Obj *const objv[])
 
 #define TCL_OBJ_CMD( name, func ) \
 Tcl_CreateObjCommand( interp,           /* Tcl interpreter */\

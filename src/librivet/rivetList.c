@@ -45,12 +45,13 @@ Rivet_LremoveObjCmd( clientData, interp, objc, objv )
     ClientData   clientData;
     Tcl_Interp  *interp;
     int          objc;
-    Tcl_Obj    *CONST objv[];
+    Tcl_Obj    *const objv[];
 {
 #define EXACT   0
 #define GLOB    1
 #define REGEXP  2
-    int listObjc, i, j, match, mode, patternLen, valueLen;
+    Tcl_Size listObjc, patternLen, valueLen;
+    int i, j, match, mode;
     int list, all, done, append;
     char *modeStr, *pattern, *value;
     Tcl_Obj **listObjv, *matchedListPtr = NULL;
@@ -237,11 +238,11 @@ Rivet_CommaSplitObjCmd (notUsed, interp, objc, objv)
     ClientData   notUsed;
     Tcl_Interp  *interp;
     int          objc;
-    Tcl_Obj   *CONST objv[];
+    Tcl_Obj   *const objv[];
 {
     char        *first, *next;
     char         c;
-    int          stringLength;
+    Tcl_Size     stringLength;
     Tcl_Obj     *resultList;
 
     /* ??? need a way to set this */
@@ -404,15 +405,15 @@ Rivet_CommaJoinObjCmd (notUsed, interp, objc, objv)
     ClientData   notUsed;
     Tcl_Interp  *interp;
     int          objc;
-    Tcl_Obj   *CONST objv[];
+    Tcl_Obj   *const objv[];
 {
-    int         listObjc;
+    Tcl_Size    listObjc;
     Tcl_Obj   **listObjv;
     int         listIdx, didField;
     Tcl_Obj    *resultPtr;
     char       *walkPtr;
     char       *strPtr;
-    int         stringLength;
+    Tcl_Size    stringLength;
 
     if( objc != 2 ) {
     Tcl_WrongNumArgs( interp, 1, objv,
@@ -483,7 +484,7 @@ Rivet_CommaJoinObjCmd (notUsed, interp, objc, objv)
  */
 TCL_CMD_HEADER( Rivet_LassignArrayObjCmd )
 {
-    int     listObjc, listIdx, idx;
+    Tcl_Size listObjc, listIdx, idx;
     Tcl_Obj **listObjv;
     Tcl_Obj *varValue;
 

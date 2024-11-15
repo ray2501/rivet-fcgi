@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package require Tcl  8.6
+package require Tcl  8.6-
 package require Itcl
 
 source [file join [file dirname [info script]] sql.tcl]

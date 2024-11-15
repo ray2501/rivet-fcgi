@@ -1,5 +1,6 @@
 #include <fcgi_stdio.h>
 #include <tcl.h>
+#include <errno.h>
 
 /*
  * Capturing stdout and stderr in C or C++ program
@@ -19,6 +20,14 @@ int inputproc(ClientData instancedata, char *buf, int toRead,
 }
 // nothing to do on close
 int closeproc(ClientData instancedata, Tcl_Interp *interp) { return 0; }
+
+int close2proc(ClientData instanceData, Tcl_Interp *interp, int flags) {
+    if ((flags&(TCL_CLOSE_READ|TCL_CLOSE_WRITE))==0) {
+        return closeproc(instanceData, interp);
+    }
+    return EINVAL;
+}
+
 // no options for this channel
 int setoptionproc(ClientData instancedata, Tcl_Interp *interp,
                          const char *optionname, const char *value) {

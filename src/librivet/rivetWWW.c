@@ -77,7 +77,7 @@ Rivet_HexToDigit(int c) {
 TCL_CMD_HEADER( Rivet_UnescapeStringCmd )
 {
     char *origString, *newString, *origStringP, *newStringP;
-    int  origLength;
+    Tcl_Size origLength;
     int digit1, digit2;
 
     if ( objc != 2 ) {
@@ -172,7 +172,7 @@ Rivet_DigitToHex(int c) {
 TCL_CMD_HEADER( Rivet_EscapeStringCmd )
 {
     char *origString, *newString, *origStringP, *newStringP;
-    int origLength;
+    Tcl_Size origLength;
 
     if ( objc != 2 ) {
         Tcl_WrongNumArgs( interp, 1, objv, "string" );
@@ -225,7 +225,7 @@ TCL_CMD_HEADER( Rivet_EscapeStringCmd )
 TCL_CMD_HEADER( Rivet_EscapeSgmlCharsCmd )
 {
     char *origString, *newString, *origStringP, *newStringP;
-    int origLength;
+    Tcl_Size origLength;
 
     if( objc != 2 ) {
         Tcl_WrongNumArgs( interp, 1, objv, "string" );
@@ -309,7 +309,7 @@ TCL_CMD_HEADER( Rivet_EscapeSgmlCharsCmd )
 TCL_CMD_HEADER( Rivet_EscapeShellCommandCmd )
 {
     char *origString, *newString, *origStringP, *newStringP, *checkP;
-    int  origLength;
+    Tcl_Size origLength;
 
     if( objc != 2) {
         Tcl_WrongNumArgs( interp, 1, objv, "string" );

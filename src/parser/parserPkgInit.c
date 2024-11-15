@@ -51,7 +51,7 @@ Parse_Rivet(
     ClientData clientData,
     Tcl_Interp *interp,
     int objc,
-    Tcl_Obj *CONST objv[])
+    Tcl_Obj *const objv[])
 {
     Tcl_Obj *outbuf;
     int     tclcode;
@@ -94,7 +94,7 @@ Parse_Rivet(
 
 static int
 Parse_RivetData(ClientData clientData, Tcl_Interp *interp,
-                int objc, Tcl_Obj *CONST objv[])
+                int objc, Tcl_Obj *const objv[])
 {
     Tcl_Obj *outbuf;
 

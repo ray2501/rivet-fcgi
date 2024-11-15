@@ -69,7 +69,7 @@ TCL_CMD_HEADER( Rivet_Parse )
     }
 
     if( objc == 2 ) {
-        filename = Tcl_GetStringFromObj( objv[1], (int *)NULL );
+        filename = Tcl_GetStringFromObj( objv[1], (Tcl_Size *)NULL );
     }
 
     scriptfile = Tcl_GetVar(interp, "scriptfile", TCL_GLOBAL_ONLY);
@@ -178,7 +178,7 @@ TCL_CMD_HEADER( Rivet_Include )
     }
 
     if( objc == 2 ) {
-        filename = Tcl_GetStringFromObj( objv[1], (int *)NULL );
+        filename = Tcl_GetStringFromObj( objv[1], (Tcl_Size *)NULL );
     }
 
     /*

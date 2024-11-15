@@ -65,7 +65,7 @@ TCL_CMD_HEADER( Rivet_EncryptCmd )
 {
     char *data, *key;
     char *resultBuffer;
-    int dataLen;
+    Tcl_Size dataLen;
     int keyIndex;
 
     if( objc < 3 ) {
@@ -93,7 +93,7 @@ TCL_CMD_HEADER( Rivet_DecryptCmd )
 {
     char *data, *key;
     char *resultBuffer;
-    int dataLen;
+    Tcl_Size dataLen;
     int keyIndex;
 
     if( objc < 3 ) {

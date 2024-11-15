@@ -11,6 +11,8 @@ extern int inputproc(ClientData instancedata, char *buf, int toRead,
 
 extern int closeproc(ClientData instancedata, Tcl_Interp *interp);
 
+extern int close2proc(ClientData instancedata, Tcl_Interp *interp, int flags);
+
 extern int setoptionproc(ClientData instancedata, Tcl_Interp *interp,
                          const char *optionname, const char *value);
 
@@ -25,7 +27,7 @@ extern int gethandleproc(ClientData instancedata, int direction,
  */
 Tcl_ChannelType TclFCGIChan = {
     "tclIOFCGIChan",       /* typeName */
-    TCL_CHANNEL_VERSION_4, /* channel type version */
+    TCL_CHANNEL_VERSION_5, /* channel type version */
     closeproc,             /* close proc */
     inputproc,             /* input proc */
     outputproc,            /* output proc */
@@ -34,7 +36,7 @@ Tcl_ChannelType TclFCGIChan = {
     NULL,                  /* get option proc - can be null */
     watchproc,             /* watch proc */
     gethandleproc,         /* get handle proc */
-    NULL,                  /* close 2 proc - can be null */
+    close2proc,            /* close 2 proc */
     NULL,                  /* block mode proc - can be null */
     NULL,                  /* flush proc - can be null */
     NULL,                  /* handler proc - can be null */
