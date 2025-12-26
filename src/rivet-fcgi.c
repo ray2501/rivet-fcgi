@@ -2,11 +2,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tcl.h>
+#include "tclWeb.h"
 #include "channel.h"
 #include "helputils.h"
 #include "rivetParser.h"
 #include "rivetCore.h"
 #include "config.h"
+
+
+void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
+    interp_globals *globals = clientData;
+
+    if (globals) {
+        if (globals->scriptfile)
+            Tcl_Free(globals->scriptfile);
+        Tcl_Free((char *)globals);
+    }
+}
 
 /*
  * Only declare, I do not really test on Windows platform
@@ -27,6 +39,7 @@ int main(int argc, char *argv[]) {
      */
     while (FCGI_Accept() >= 0) {
         Tcl_Interp *interp = NULL;
+        interp_globals *globals = NULL;
         Tcl_Obj *script = NULL;
         Tcl_Obj *pathPtr = NULL;
         char *filename = NULL;
@@ -180,6 +193,10 @@ int main(int argc, char *argv[]) {
             goto end;
         }
 
+        globals = (interp_globals *)Tcl_Alloc(sizeof(interp_globals));
+        globals->scriptfile = NULL;
+        Tcl_SetAssocData(interp, "rivet", FreeGlobalsData, globals);
+
         Tcl_Preserve((ClientData)interp);
 
         Tcl_IncrRefCount(pathPtr);
@@ -230,7 +247,9 @@ int main(int argc, char *argv[]) {
         /*
          * Save the filename info to scriptfile
          */
-        Tcl_SetVar(interp, "scriptfile", filename, TCL_GLOBAL_ONLY);
+        // Tcl_SetVar(interp, "scriptfile", filename, TCL_GLOBAL_ONLY);
+        globals->scriptfile = (char *)Tcl_Alloc(strlen(filename) + 1);
+        strcpy(globals->scriptfile, filename);
 
         result = Tcl_EvalObjEx(interp, script, 0);
         Tcl_DecrRefCount(script);

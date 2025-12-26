@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "rivet.h"
+#include "tclWeb.h"
 
 /* Function prototypes are defined with EXTERN. Since we are in the same DLL,
  * no need to keep this extern... */
@@ -60,6 +61,7 @@ TCL_CMD_HEADER( Rivet_Parse )
     Tcl_Obj*                pathPtr = NULL;
     int                     result;
     Tcl_DString             fullpath;
+    interp_globals*         globals = Tcl_GetAssocData(interp, "rivet", NULL);
 
 
     if( objc != 2)
@@ -72,7 +74,8 @@ TCL_CMD_HEADER( Rivet_Parse )
         filename = Tcl_GetStringFromObj( objv[1], (Tcl_Size *)NULL );
     }
 
-    scriptfile = Tcl_GetVar(interp, "scriptfile", TCL_GLOBAL_ONLY);
+    // scriptfile = Tcl_GetVar(interp, "scriptfile", TCL_GLOBAL_ONLY);
+    scriptfile = globals->scriptfile;
 
     /*
      * Try to get real path.
@@ -170,6 +173,7 @@ TCL_CMD_HEADER( Rivet_Include )
     Tcl_DString             transoptions;
     Tcl_DString             encoptions;
     Tcl_DString             fullpath;
+    interp_globals*         globals = Tcl_GetAssocData(interp, "rivet", NULL);
 
     if( objc != 2)
     {
@@ -192,7 +196,8 @@ TCL_CMD_HEADER( Rivet_Include )
         const char *scriptfile = NULL;
         int i, n;
 
-        scriptfile = Tcl_GetVar(interp, "scriptfile", TCL_GLOBAL_ONLY);
+        //scriptfile = Tcl_GetVar(interp, "scriptfile", TCL_GLOBAL_ONLY);
+        scriptfile = globals->scriptfile;
         n = strlen(scriptfile);
         i = n - 1;
         while ((i > 0) && (scriptfile[i] != '/') && (scriptfile[i] != '\\')) {
