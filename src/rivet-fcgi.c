@@ -257,7 +257,9 @@ int main(int argc, char *argv[]) {
         /*
          * If result is not TCL_OK, print error message to stderr.
          */
-        if (result != TCL_OK) {
+        if (result == TCL_OK) {
+            Tcl_Flush(m_Out); // Flushes the standard output channel
+        } else {
             fprintf(stderr, "ERROR when eval: %s: %s\n", script,
                     Tcl_GetStringResult(interp));
 
