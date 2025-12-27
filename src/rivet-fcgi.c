@@ -9,6 +9,7 @@
 #include "rivetCore.h"
 #include "config.h"
 
+#define TCL_MAX_CHANNEL_BUFFER_SIZE (1024*1024)
 
 void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
     interp_globals *globals = clientData;
@@ -103,11 +104,10 @@ int main(int argc, char *argv[]) {
         Tcl_Channel m_Out = Tcl_CreateChannel(
             &TclFCGIChan, "fcgiout", (ClientData)FCGI_stdout, TCL_WRITABLE);
 
-        Tcl_SetChannelOption(NULL, m_Out, "-translation", "lf");
-        Tcl_SetChannelOption(NULL, m_Out, "-buffering", "none");
         Tcl_SetChannelOption(NULL, m_Out, "-encoding", "utf-8");
 
         Tcl_SetStdChannel(m_Out, TCL_STDOUT);
+        Tcl_SetChannelBufferSize (m_Out, TCL_MAX_CHANNEL_BUFFER_SIZE);
         Tcl_RegisterChannel(interp, m_Out);
 
         Tcl_Channel m_Err = Tcl_CreateChannel(
@@ -257,9 +257,7 @@ int main(int argc, char *argv[]) {
         /*
          * If result is not TCL_OK, print error message to stderr.
          */
-        if (result == TCL_OK) {
-            Tcl_Flush(m_Out); // Flushes the standard output channel
-        } else {
+        if (result != TCL_OK) {
             fprintf(stderr, "ERROR when eval: %s: %s\n", script,
                     Tcl_GetStringResult(interp));
 
@@ -268,6 +266,7 @@ int main(int argc, char *argv[]) {
         }
 
     myclean:
+        Tcl_Flush(m_Out); // Flushes the standard output channel
         FCGI_Finish();
         Tcl_DeleteInterp(interp);
         Tcl_Release((ClientData)interp);
