@@ -43,11 +43,12 @@ Below is an example:
 
 # Notice
 
-When the received file its extension is .rvt file, the header is fixed:
+If users do not use `::rivet::headers` command to specify Content-type,
+the default header for .rvt file is:
 
     Content-type: text/html; charset=utf-8
 
-If file extension is .tcl file, users need to send http headers
+And if file extension is .tcl file, users need to send http headers
 by yourself.
 
 Please notice some environment variables maybe do not exist (then result
