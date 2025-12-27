@@ -1,0 +1,7 @@
+<?
+    ::rivet::headers numeric 200
+    ::rivet::headers type "text/plain"
+    ::rivet::headers add "Content-Description" "Text Document"
+
+    puts "Hello, it is a test."
+?>

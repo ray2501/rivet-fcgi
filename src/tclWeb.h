@@ -15,12 +15,46 @@ typedef struct _interp_globals {
     TclWebRequest *req;
 } interp_globals;
 
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * TclWeb_SendHeaders --
+ * Sends HTTP headers.
+ *
+ * Results:
+ * HTTP headers output.  Things like cookies may no longer be manipulated.
+ *
+ *-----------------------------------------------------------------------------
+ */
 
 int TclWeb_SendHeaders(TclWebRequest *req);
 
 int TclWeb_SetHeaderType(char *header, TclWebRequest *req);
 
 int TclWeb_PrintHeaders(TclWebRequest *req);
+
+void TclWeb_OutputHeaderSet(char *header, char *val, TclWebRequest *req);
+const char* TclWeb_OutputHeaderGet(char *header, TclWebRequest *req);
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * TclWeb_HeaderAdd --
+ * Adds an HTTP headers.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+int TclWeb_HeaderAdd(char *header, char *val, TclWebRequest *req);
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * TclWeb_SetStatus --
+ * Sets status number for reply.
+ *
+ *-----------------------------------------------------------------------------
+ */
 
 int TclWeb_SetStatus(int status, TclWebRequest *req);
 

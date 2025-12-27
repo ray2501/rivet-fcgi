@@ -40,6 +40,149 @@
 /*
  *-----------------------------------------------------------------------------
  *
+ * Rivet_Headers --
+ *
+ *      Command to manipulate HTTP headers from Tcl.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ * Side Effects:
+ *      None.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER( Rivet_Headers )
+{
+    char *opt;
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    if (objc < 2)
+    {
+        Tcl_WrongNumArgs(interp, 1, objv, "option arg ?arg ...?");
+        return TCL_ERROR;
+    }
+
+    opt = Tcl_GetStringFromObj(objv[1], NULL);
+
+    /* Basic introspection returning the value of the headers_printed flag */
+
+    if (!strcmp("sent",opt))
+    {
+        Tcl_SetObjResult(interp, Tcl_NewIntObj(globals->req->headers_printed));
+        return TCL_OK;
+    }
+
+    if (globals->req->headers_printed != 0)
+    {
+        Tcl_AddObjErrorInfo(interp,
+                            "Cannot manipulate headers - already sent", -1);
+        return TCL_ERROR;
+    }
+
+    if (!strcmp("redirect", opt)) /* ### redirect ### */
+    {
+        Tcl_HashEntry *entry = NULL;
+        int isNew = 0;
+        char *hashvalue = NULL;
+        char *value = NULL;
+
+        if (objc != 3)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "new-url");
+            return TCL_ERROR;
+        }
+
+        value = Tcl_GetStringFromObj (objv[2], (int *)NULL);
+        entry = Tcl_FindHashEntry(globals->req->headers, "Location");
+        if (entry == NULL) {
+            entry = Tcl_CreateHashEntry(globals->req->headers, "Location", &isNew);
+        } else {
+            hashvalue = (char *)Tcl_GetHashValue(entry);
+            if (hashvalue)
+                Tcl_Free(hashvalue);
+        }
+
+        hashvalue = (char *)Tcl_Alloc(strlen(value) + 1);
+        strcpy(hashvalue, value);
+        Tcl_SetHashValue(entry, (ClientData) hashvalue);
+
+        TclWeb_SetStatus(301, globals->req);
+        return TCL_OK;
+    }
+    else if (!strcmp("get", opt)) /* ### get ### */
+    {
+        const char* header_value;
+
+        if (objc != 3)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "headername");
+            return TCL_ERROR;
+        }
+        header_value = TclWeb_OutputHeaderGet(Tcl_GetString(objv[2]),globals->req);
+
+        Tcl_SetObjResult(interp,Tcl_NewStringObj(header_value ? header_value : "",-1));
+    }
+    else if (!strcmp("set", opt)) /* ### set ### */
+    {
+        if (objc != 4)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "headername value");
+            return TCL_ERROR;
+        }
+        TclWeb_OutputHeaderSet(Tcl_GetString(objv[2]), Tcl_GetString(objv[3]), globals->req);
+    }
+    else if (!strcmp("add", opt)) /* ### set ### */
+    {
+        if (objc != 4)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "headername value");
+            return TCL_ERROR;
+        }
+        TclWeb_HeaderAdd(Tcl_GetString(objv[2]), Tcl_GetString(objv[3]), globals->req);
+    }
+    else if (!strcmp("type", opt)) /* ### set ### */
+    {
+        if (objc != 3)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "mime/type");
+            return TCL_ERROR;
+        }
+        TclWeb_SetHeaderType(Tcl_GetString(objv[2]), globals->req);
+    }
+    else if (!strcmp("numeric", opt)) /* ### numeric ### */
+    {
+        int st = 200;
+
+        if (objc != 3)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "response_code_number");
+            return TCL_ERROR;
+        }
+        if (Tcl_GetIntFromObj(interp, objv[2], &st) != TCL_ERROR) {
+            TclWeb_SetStatus(st, globals->req);
+        } else {
+            return TCL_ERROR;
+        }
+
+    } else {
+
+        Tcl_Obj* result = Tcl_NewStringObj("unrecognized subcommand: ",-1);
+        Tcl_IncrRefCount(result);
+        Tcl_AppendStringsToObj(result,opt,NULL);
+
+        Tcl_SetObjResult(interp, result);
+        Tcl_DecrRefCount(result);
+        return TCL_ERROR;
+    }
+    return TCL_OK;
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
  * Rivet_Parse --
  *
  *      Include and parse a Rivet file.
@@ -310,6 +453,7 @@ DLLEXPORT int
 Rivet_InitCore(Tcl_Interp *interp)
 {
 
+    RIVET_OBJ_CMD ("headers",Rivet_Headers,NULL);
     RIVET_OBJ_CMD ("include",Rivet_Include,NULL);
     RIVET_OBJ_CMD ("parse",Rivet_Parse,NULL);
     RIVET_OBJ_CMD ("env",Rivet_EnvCmd,NULL);
@@ -324,6 +468,7 @@ Rivet_InitCore(Tcl_Interp *interp)
                                         (Tcl_NamespaceDeleteProc *)NULL);
         }
 
+        RIVET_EXPORT_CMD(interp,rivet_ns,"headers");
         RIVET_EXPORT_CMD(interp,rivet_ns,"include");
         RIVET_EXPORT_CMD(interp,rivet_ns,"parse");
         RIVET_EXPORT_CMD(interp,rivet_ns,"env");

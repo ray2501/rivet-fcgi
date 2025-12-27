@@ -35,9 +35,9 @@ int TclWeb_SendHeaders(TclWebRequest *req) {
                 printf("%s: %s\r\n", hashkey, hashvalue);
             }
         }
-    }
 
-    printf("\r\n");
+        printf("\r\n");
+    }
 
     return TCL_OK;
 }
@@ -56,6 +56,10 @@ int TclWeb_SetHeaderType(char *header, TclWebRequest *req) {
     entry = Tcl_FindHashEntry(req->headers, "Content-type");
     if (entry == NULL) {
         entry = Tcl_CreateHashEntry(req->headers, "Content-type", &isNew);
+    } else {
+        hashvalue = (char *)Tcl_GetHashValue(entry);
+        if (hashvalue)
+            Tcl_Free(hashvalue);
     }
 
     hashvalue = (char *)Tcl_Alloc(strlen(header) + 1);
@@ -81,6 +85,71 @@ int TclWeb_PrintHeaders(TclWebRequest *req) {
     TclWeb_SendHeaders(req);
 
     req->headers_printed = 1;
+    return TCL_OK;
+}
+
+void TclWeb_OutputHeaderSet(char *header, char *val, TclWebRequest *req) {
+    if (req == NULL)
+        return;
+
+    if (req->headers) {
+        Tcl_HashEntry *entry = NULL;
+        char *hashvalue = NULL;
+        int isNew = 0;
+
+        entry = Tcl_FindHashEntry(req->headers, header);
+        if (entry == NULL) {
+            entry = Tcl_CreateHashEntry(req->headers, header, &isNew);
+        } else {
+            hashvalue = (char *)Tcl_GetHashValue(entry);
+            if (hashvalue)
+                Tcl_Free(hashvalue);
+        }
+
+        hashvalue = (char *)Tcl_Alloc(strlen(val) + 1);
+        strcpy(hashvalue, val);
+        Tcl_SetHashValue(entry, (ClientData) hashvalue);
+    }
+}
+
+const char* TclWeb_OutputHeaderGet(char *header, TclWebRequest *req) {
+    if (req == NULL)
+        return NULL;
+
+    if (req->headers) {
+        Tcl_HashEntry *entry = NULL;
+        const char *hashvalue = NULL;
+
+        entry = Tcl_FindHashEntry(req->headers, header);
+        if (entry == NULL) {
+            return NULL;
+        }
+
+        hashvalue = (const char *)Tcl_GetHashValue(entry);
+        if (hashvalue)
+            return hashvalue;
+    }
+
+    return NULL;
+}
+
+int TclWeb_HeaderAdd(char *header, char *val, TclWebRequest *req) {
+    if (req == NULL)
+        return TCL_ERROR;
+
+    if (req->headers) {
+        Tcl_HashEntry *entry = NULL;
+        char *hashvalue = NULL;
+        int isNew = 0;
+
+        entry = Tcl_CreateHashEntry(req->headers, header, &isNew);
+        hashvalue = (char *)Tcl_Alloc(strlen(val) + 1);
+        strcpy(hashvalue, val);
+        Tcl_SetHashValue(entry, (ClientData) hashvalue);
+    } else {
+        return TCL_ERROR;
+    }
+
     return TCL_OK;
 }
 

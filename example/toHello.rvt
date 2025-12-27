@@ -1,0 +1,7 @@
+<?
+    ::rivet::headers redirect /cgi-bin/hello.rvt
+    ::rivet::headers type "text/plain"
+
+    puts "Location: [::rivet::headers get Location]"
+    puts "Move to hello.rvt"
+?>
