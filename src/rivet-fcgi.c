@@ -1,15 +1,16 @@
+#include "channel.h"
+#include "config.h"
+#include "errChan.h"
+#include "helputils.h"
+#include "rivetCore.h"
+#include "rivetParser.h"
+#include "tclWeb.h"
 #include <fcgi_stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tcl.h>
-#include "tclWeb.h"
-#include "channel.h"
-#include "helputils.h"
-#include "rivetParser.h"
-#include "rivetCore.h"
-#include "config.h"
 
-#define TCL_MAX_CHANNEL_BUFFER_SIZE (1024*1024)
+#define TCL_MAX_CHANNEL_BUFFER_SIZE (1024 * 1024)
 
 void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
     interp_globals *globals = clientData;
@@ -17,6 +18,29 @@ void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
     if (globals) {
         if (globals->scriptfile)
             Tcl_Free(globals->scriptfile);
+
+        if (globals->req) {
+            if (globals->req->headers) {
+                char *hashvalue = NULL;
+                Tcl_HashEntry *entry = NULL;
+                Tcl_HashSearch search;
+
+                for (entry = Tcl_FirstHashEntry(globals->req->headers, &search);
+                     entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                    if (hashvalue)
+                        Tcl_Free(hashvalue);
+
+                    Tcl_DeleteHashEntry(entry);
+                }
+
+                Tcl_DeleteHashTable(globals->req->headers);
+                Tcl_Free((char *)globals->req->headers);
+            }
+
+            Tcl_Free((char *)globals->req);
+        }
+
         Tcl_Free((char *)globals);
     }
 }
@@ -97,21 +121,35 @@ int main(int argc, char *argv[]) {
             goto end;
         }
 
+        globals = (interp_globals *)Tcl_Alloc(sizeof(interp_globals));
+        globals->scriptfile = NULL;
+        globals->req = (TclWebRequest *)Tcl_Alloc(sizeof(TclWebRequest));
+        globals->req->headers =
+            (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
+        Tcl_InitHashTable(globals->req->headers, TCL_STRING_KEYS);
+
+        globals->req->headers_printed = 0;
+        globals->req->headers_set = 0;
+        globals->req->status = 0;
+        Tcl_SetAssocData(interp, "rivet", FreeGlobalsData, globals);
+
+        Tcl_Preserve((ClientData)interp);
+
         /*
          * We need redfine stdout and stderr to output result.
          * Create a channel to do this thing.
          */
-        Tcl_Channel m_Out = Tcl_CreateChannel(
-            &TclFCGIChan, "fcgiout", (ClientData)FCGI_stdout, TCL_WRITABLE);
+        Tcl_Channel m_Out = Tcl_CreateChannel(&TclFCGIChan, "fcgiout",
+                                              (ClientData)interp, TCL_WRITABLE);
 
         Tcl_SetChannelOption(NULL, m_Out, "-encoding", "utf-8");
 
         Tcl_SetStdChannel(m_Out, TCL_STDOUT);
-        Tcl_SetChannelBufferSize (m_Out, TCL_MAX_CHANNEL_BUFFER_SIZE);
+        Tcl_SetChannelBufferSize(m_Out, TCL_MAX_CHANNEL_BUFFER_SIZE);
         Tcl_RegisterChannel(interp, m_Out);
 
-        Tcl_Channel m_Err = Tcl_CreateChannel(
-            &TclFCGIChan, "fcgierr", (ClientData)FCGI_stderr, TCL_WRITABLE);
+        Tcl_Channel m_Err = Tcl_CreateChannel(&TclFCGIErrChan, "fcgierr",
+                                              (ClientData)interp, TCL_WRITABLE);
 
         Tcl_SetChannelOption(NULL, m_Err, "-translation", "lf");
         Tcl_SetChannelOption(NULL, m_Err, "-buffering", "none");
@@ -193,12 +231,6 @@ int main(int argc, char *argv[]) {
             goto end;
         }
 
-        globals = (interp_globals *)Tcl_Alloc(sizeof(interp_globals));
-        globals->scriptfile = NULL;
-        Tcl_SetAssocData(interp, "rivet", FreeGlobalsData, globals);
-
-        Tcl_Preserve((ClientData)interp);
-
         Tcl_IncrRefCount(pathPtr);
         if (Tcl_FSAccess(pathPtr, R_OK)) {
             printf("Status: 500 Internal Server Error\r\n");
@@ -230,13 +262,7 @@ int main(int argc, char *argv[]) {
             goto myclean;
         }
 
-        if (result == TCL_OK) {
-            /* Send default header for .rvt file */
-            if (strcmp(file_ext, ".rvt") == 0) {
-                printf("Status: 200 OK\r\n");
-                printf("Content-type: text/html; charset=utf-8\r\n\r\n");
-            }
-        } else {
+        if (result != TCL_OK) {
             printf("Status: 500 Internal Server Error\r\n");
 
             fprintf(stderr, "rivet-fcgi: Could not read file %s.\n", filename);
@@ -265,8 +291,9 @@ int main(int argc, char *argv[]) {
                              "$errorInfo; flush stderr;");
         }
 
-    myclean:
         Tcl_Flush(m_Out); // Flushes the standard output channel
+
+    myclean:
         FCGI_Finish();
         Tcl_DeleteInterp(interp);
         Tcl_Release((ClientData)interp);
