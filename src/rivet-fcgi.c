@@ -67,6 +67,7 @@ int main(int argc, char *argv[]) {
         interp_globals *globals = NULL;
         Tcl_Obj *script = NULL;
         Tcl_Obj *pathPtr = NULL;
+        Tcl_Obj *request_init = NULL;
         char *filename = NULL;
         const char *file_ext = NULL;
         int result;
@@ -242,6 +243,20 @@ int main(int argc, char *argv[]) {
         }
         Tcl_DecrRefCount(pathPtr);
 
+        /*
+         * Eval ::Rivet::initialize_request
+         */
+        request_init = Tcl_NewStringObj("::Rivet::initialize_request\n", -1);
+        Tcl_IncrRefCount(request_init);
+
+        if (Tcl_EvalObjEx(interp, request_init, 0) == TCL_ERROR)
+        {
+            printf("Status: 500 Internal Server Error\r\n");
+
+            fprintf(stderr, "rivet-fcgi: execute initialize_request failed.\n");
+            goto myclean;
+        }
+
         file_ext = FileSuffix(filename);
 
         script = Tcl_NewObj();
@@ -294,6 +309,7 @@ int main(int argc, char *argv[]) {
         Tcl_Flush(m_Out); // Flushes the standard output channel
 
     myclean:
+        Tcl_DecrRefCount(request_init);
         FCGI_Finish();
         Tcl_DeleteInterp(interp);
         Tcl_Release((ClientData)interp);

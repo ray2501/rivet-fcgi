@@ -13,6 +13,7 @@ set auto_index(::rivet::rivet_command_document) [list source [file join $dir riv
 set auto_index(::rivet::putsnnl) [list source [file join $dir putsnnl.tcl]]
 set auto_index(::rivet::clock_to_rfc850_gmt) [list source [file join $dir cookie.tcl]]
 set auto_index(::rivet::make_cookie_attributes) [list source [file join $dir cookie.tcl]]
+set auto_index(::rivet::cookie) [list source [file join $dir cookie.tcl]]
 set auto_index(::rivet::lempty) [list source [file join $dir lempty.tcl]]
 set auto_index(::rivet::import_switch_args) [list source [file join $dir import_switch_args.tcl]]
 set auto_index(::rivet::lmatch) [list source [file join $dir lmatch.tcl]]

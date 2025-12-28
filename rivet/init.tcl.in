@@ -112,6 +112,25 @@ proc ::Rivet::tcl_commands_export_list {tclpath} {
     return $commands
 }
 
+###
+## This routine gets called each time a new request comes in.
+## It sets up the request namespace and creates a global command
+## to replace the default global.  This ensures that when a user
+## uses global variables, they're actually contained within the
+## namespace.  So, everything gets deleted when the request is finished.
+###
+proc ::Rivet::initialize_request {} {
+    catch { namespace delete ::request }
+
+    namespace eval ::request {}
+
+    proc ::request::global {args} {
+        foreach arg $args {
+            uplevel "::global ::request::$arg"
+        }
+    }
+}
+
 ::Rivet::init
 
 package provide Rivet @RIVET_INIT_VERSION@
