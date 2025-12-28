@@ -27,7 +27,10 @@ int outputproc(ClientData instanceData, const char *buf, int toWrite,
         TclWeb_PrintHeaders(globals->req);
     }
 
-    FCGI_fwrite((char *)buf, toWrite, 1, FCGI_stdout);
+    if (globals->req->content_sent == 0) {
+        FCGI_fwrite((char *)buf, toWrite, 1, FCGI_stdout);
+    }
+
     return toWrite;
 }
 

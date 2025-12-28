@@ -398,6 +398,37 @@ TCL_CMD_HEADER( Rivet_Include )
 
 
 /*
+ * -----------------------------------------------------------------------------
+ *
+ * Rivet_NoBody --
+ *
+ *      Tcl command to erase body, so that only header is returned.
+ *      Necessary for 304 responses.
+ *
+ * Results:
+ *      A standard Tcl return value.
+ *
+ * Side Effects:
+ *      Eliminates any body returned in the HTTP response.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER( Rivet_NoBody )
+{
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    if (globals->req->content_sent == 1) {
+        Tcl_AddErrorInfo(interp, "Content already sent");
+        return TCL_ERROR;
+    }
+
+    globals->req->content_sent = 1;
+    return TCL_OK;
+}
+
+
+/*
  *-----------------------------------------------------------------------------
  *
  * Rivet_EnvCmd --
@@ -456,6 +487,7 @@ Rivet_InitCore(Tcl_Interp *interp)
     RIVET_OBJ_CMD ("headers",Rivet_Headers,NULL);
     RIVET_OBJ_CMD ("include",Rivet_Include,NULL);
     RIVET_OBJ_CMD ("parse",Rivet_Parse,NULL);
+    RIVET_OBJ_CMD ("no_body",Rivet_NoBody,NULL);
     RIVET_OBJ_CMD ("env",Rivet_EnvCmd,NULL);
 
     {
@@ -471,6 +503,7 @@ Rivet_InitCore(Tcl_Interp *interp)
         RIVET_EXPORT_CMD(interp,rivet_ns,"headers");
         RIVET_EXPORT_CMD(interp,rivet_ns,"include");
         RIVET_EXPORT_CMD(interp,rivet_ns,"parse");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"no_body");
         RIVET_EXPORT_CMD(interp,rivet_ns,"env");
     }
 

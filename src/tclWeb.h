@@ -7,6 +7,7 @@ typedef struct TclWebRequest {
     Tcl_HashTable *headers;
     int headers_printed;
     int headers_set;
+    int content_sent;
     int status;
 } TclWebRequest;
 

@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
 
         globals->req->headers_printed = 0;
         globals->req->headers_set = 0;
+        globals->req->content_sent = 0;
         globals->req->status = 0;
         Tcl_SetAssocData(interp, "rivet", FreeGlobalsData, globals);
 
@@ -254,6 +255,7 @@ int main(int argc, char *argv[]) {
             printf("Status: 500 Internal Server Error\r\n");
 
             fprintf(stderr, "rivet-fcgi: execute initialize_request failed.\n");
+            Tcl_DecrRefCount(request_init);
             goto myclean;
         }
 
@@ -307,9 +309,9 @@ int main(int argc, char *argv[]) {
         }
 
         Tcl_Flush(m_Out); // Flushes the standard output channel
+        Tcl_DecrRefCount(request_init);
 
     myclean:
-        Tcl_DecrRefCount(request_init);
         FCGI_Finish();
         Tcl_DeleteInterp(interp);
         Tcl_Release((ClientData)interp);
