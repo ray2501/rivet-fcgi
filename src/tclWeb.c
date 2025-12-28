@@ -14,6 +14,8 @@ int TclWeb_SendHeaders(TclWebRequest *req) {
     if (status != 0) {
         if (status == 200) {
             printf("Status: 200 OK\r\n");
+        } else if(status == 404) {
+            printf("Status: 404 Not Found\r\n");
         } else if(status == 500) {
             printf("Status: 500 Internal Server Error\r\n");
         } else {

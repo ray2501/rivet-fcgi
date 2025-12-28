@@ -235,10 +235,9 @@ int main(int argc, char *argv[]) {
 
         Tcl_IncrRefCount(pathPtr);
         if (Tcl_FSAccess(pathPtr, R_OK)) {
-            printf("Status: 500 Internal Server Error\r\n");
+            printf("Status: 404 Not Found\r\n");
 
-            fprintf(stderr, "rivet-fcgi: File cannot read.\n");
-            fprintf(stderr, "rivet-fcgi: %s.\n", filename);
+            fprintf(stderr, "rivet-fcgi: File %s cannot read.\n", filename);
             Tcl_DecrRefCount(pathPtr);
             goto myclean;
         }
