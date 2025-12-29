@@ -122,6 +122,9 @@ int main(int argc, char *argv[]) {
             goto end;
         }
 
+        /*
+         * initialize globals
+         */
         globals = (interp_globals *)Tcl_Alloc(sizeof(interp_globals));
         globals->scriptfile = NULL;
         globals->req = (TclWebRequest *)Tcl_Alloc(sizeof(TclWebRequest));
@@ -133,6 +136,10 @@ int main(int argc, char *argv[]) {
         globals->req->headers_set = 0;
         globals->req->content_sent = 0;
         globals->req->status = 0;
+
+        globals->script_exit = 0;
+        globals->page_aborting = 0;
+        globals->abort_code = NULL;
         Tcl_SetAssocData(interp, "rivet", FreeGlobalsData, globals);
 
         Tcl_Preserve((ClientData)interp);
@@ -163,7 +170,7 @@ int main(int argc, char *argv[]) {
         if (argc <= 1) {
             filename = getenv("SCRIPT_FILENAME");
             if (filename == NULL) {
-                fprintf(stderr, "rivet-fcgi: No filename.\n");
+                LogMessage("rivet-fcgi: No filename.");
                 ret = EXIT_FAILURE;
                 goto end;
             }
@@ -176,7 +183,7 @@ int main(int argc, char *argv[]) {
                 filename = argv[1];
             }
         } else {
-            fprintf(stderr, "rivet-fcgi: Too many arguments.\n");
+            LogMessage("rivet-fcgi: Too many arguments.");
             ret = EXIT_FAILURE;
             goto end;
         }
@@ -228,7 +235,7 @@ int main(int argc, char *argv[]) {
         if (!pathPtr) {
             printf("Status: 500 Internal Server Error\r\n");
 
-            fprintf(stderr, "rivet-fcgi: Something is wrong.\n");
+            LogMessage("rivet-fcgi: Something is wrong.");
             ret = EXIT_FAILURE;
             goto end;
         }
@@ -237,7 +244,7 @@ int main(int argc, char *argv[]) {
         if (Tcl_FSAccess(pathPtr, R_OK)) {
             printf("Status: 404 Not Found\r\n");
 
-            fprintf(stderr, "rivet-fcgi: File %s cannot read.\n", filename);
+            LogMessage("rivet-fcgi: File %s cannot read.", filename);
             Tcl_DecrRefCount(pathPtr);
             goto myclean;
         }
@@ -249,11 +256,10 @@ int main(int argc, char *argv[]) {
         request_init = Tcl_NewStringObj("::Rivet::initialize_request\n", -1);
         Tcl_IncrRefCount(request_init);
 
-        if (Tcl_EvalObjEx(interp, request_init, 0) == TCL_ERROR)
-        {
+        if (Tcl_EvalObjEx(interp, request_init, 0) == TCL_ERROR) {
             printf("Status: 500 Internal Server Error\r\n");
 
-            fprintf(stderr, "rivet-fcgi: execute initialize_request failed.\n");
+            LogMessage("rivet-fcgi: execute initialize_request failed.");
             Tcl_DecrRefCount(request_init);
             goto myclean;
         }
@@ -273,7 +279,7 @@ int main(int argc, char *argv[]) {
              */
             printf("Status: 500 Internal Server Error\r\n");
 
-            fprintf(stderr, "rivet-fcgi: Wrong file type.\n");
+            LogMessage("rivet-fcgi: Wrong file type.");
             Tcl_DecrRefCount(script);
             goto myclean;
         }
@@ -281,7 +287,7 @@ int main(int argc, char *argv[]) {
         if (result != TCL_OK) {
             printf("Status: 500 Internal Server Error\r\n");
 
-            fprintf(stderr, "rivet-fcgi: Could not read file %s.\n", filename);
+            LogMessage("rivet-fcgi: Could not read file %s.", filename);
             Tcl_DecrRefCount(script);
             goto myclean;
         }
@@ -300,14 +306,40 @@ int main(int argc, char *argv[]) {
          * If result is not TCL_OK, print error message to stderr.
          */
         if (result != TCL_OK) {
-            fprintf(stderr, "ERROR when eval: %s: %s\n", script,
-                    Tcl_GetStringResult(interp));
+            LogMessage("ERROR when eval: %s", filename);
 
             Tcl_Eval(interp, "puts stderr {STACK TRACE:}; puts stderr "
                              "$errorInfo; flush stderr;");
+
+            if (result == TCL_ERROR && globals->page_aborting == 1) {
+                /*
+                 * Apache Rivet will invoke AbortScript script.
+                 * Headers stored in Tcl_HashTable and you still can use it.
+                 */
+
+                if (globals->abort_code != NULL) {
+                    Tcl_Eval(interp, "puts [::rivet::abort_code]");
+                }
+            } else if (result == TCL_ERROR && globals->script_exit == 1) {
+                /*
+                 * Apache Rivet finally will invoke Tcl exit function.
+                 * Now I just output the ::rivet::abort_code result to user.
+                 */
+
+                if (globals->abort_code != NULL) {
+                    Tcl_Eval(interp, "puts [::rivet::abort_code]");
+                }
+            }
         }
 
         Tcl_Flush(m_Out); // Flushes the standard output channel
+
+        if (globals->abort_code != NULL) {
+            Tcl_DecrRefCount(globals->abort_code);
+            globals->abort_code = NULL;
+        }
+        globals->page_aborting = 0;
+
         Tcl_DecrRefCount(request_init);
 
     myclean:

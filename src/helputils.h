@@ -21,4 +21,6 @@
 
 extern const char *FileSuffix(const char path[]);
 
+extern void LogMessage(const char* format, ...);
+
 #endif

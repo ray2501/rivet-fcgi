@@ -36,6 +36,8 @@
 #include "rivetParser.h"
 #include "helputils.h"
 
+#define ABORTPAGE_CODE "ABORTPAGE"
+#define SCRIPT_EXIT_CODE "SCRIPT_EXIT"
 
 /*
  *-----------------------------------------------------------------------------
@@ -181,6 +183,105 @@ TCL_CMD_HEADER( Rivet_Headers )
 
 
 /*
+ * -----------------------------------------------------------------------------
+ *
+ * Rivet_AbortPageCmd --
+ *
+ *      Similar in purpose to PHP's "die" command, which halts all
+ *      further output to the user.
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ * Side Effects:
+ *      Stop the script.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER( Rivet_AbortPageCmd )
+{
+    static char *errorMessage = "Page generation terminated by abort_page directive";
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    if (objc > 2)
+    {
+        Tcl_WrongNumArgs(interp, 1, objv, "");
+        return TCL_ERROR;
+    }
+
+    if (objc == 2)
+    {
+        char* cmd_arg = Tcl_GetStringFromObj(objv[1],NULL);
+
+        if (strcmp(cmd_arg,"-aborting") == 0)
+        {
+            Tcl_SetObjResult (interp,Tcl_NewBooleanObj(globals->page_aborting));
+            return TCL_OK;
+        }
+
+        if (strcmp(cmd_arg,"-exiting") == 0)
+        {
+            Tcl_SetObjResult (interp,Tcl_NewBooleanObj(globals->script_exit));
+            return TCL_OK;
+        }
+
+        /*
+         * we assume abort_code to be null, as abort_page shouldn't run twice while
+         * processing the same request
+         */
+
+        if (globals->abort_code == NULL)
+        {
+            globals->abort_code = objv[1];
+            Tcl_IncrRefCount(globals->abort_code);
+        }
+    }
+
+    /*
+     * If page_aborting is true then this is the second call to abort_page
+     * processing the same request: we ignore it and return a normal
+     * completion code
+     */
+
+    if (globals->page_aborting)
+    {
+        return TCL_OK;
+    }
+
+    /* this is the first (and supposedly unique) abort_page call during this request */
+
+    globals->page_aborting = 1;
+
+    Tcl_AddErrorInfo (interp, errorMessage);
+    Tcl_SetErrorCode (interp, "RIVET", ABORTPAGE_CODE, errorMessage, (char *)NULL);
+    return TCL_ERROR;
+}
+
+
+/*
+ * -----------------------------------------------------------------------------
+ * Rivet_AbortCodeCmd --
+ *
+ * Returns the abort code stored internally by passing a user defined parameter
+ * to the command 'abort_page'.
+ *
+ *-----------------------------------------------------------------------------
+ */
+TCL_CMD_HEADER( Rivet_AbortCodeCmd )
+{
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    if (globals->abort_code != NULL)
+    {
+        Tcl_SetObjResult(interp,globals->abort_code);
+    }
+
+    return TCL_OK;
+}
+
+
+/*
  *-----------------------------------------------------------------------------
  *
  * Rivet_Parse --
@@ -198,13 +299,13 @@ TCL_CMD_HEADER( Rivet_Headers )
 
 TCL_CMD_HEADER( Rivet_Parse )
 {
-    const char*             scriptfile = NULL;
-    char*                   filename = 0;
-    Tcl_Obj*                script = NULL;
-    Tcl_Obj*                pathPtr = NULL;
-    int                     result;
-    Tcl_DString             fullpath;
-    interp_globals*         globals = Tcl_GetAssocData(interp, "rivet", NULL);
+    const char*     scriptfile = NULL;
+    char*           filename = 0;
+    Tcl_Obj*        script = NULL;
+    Tcl_Obj*        pathPtr = NULL;
+    int             result;
+    Tcl_DString     fullpath;
+    interp_globals* globals = Tcl_GetAssocData(interp, "rivet", NULL);
 
 
     if( objc != 2)
@@ -465,6 +566,74 @@ TCL_CMD_HEADER( Rivet_EnvCmd )
 
 
 /*
+ * -----------------------------------------------------------------------------
+ *
+ * Rivet_ExitCmd --
+ *
+ *      Stop the script.
+ *
+ * Result:
+ *
+ *      TCL_ERROR
+ *
+ * Side Effects:
+ *      Stop the script.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER( Rivet_ExitCmd )
+{
+    int value;
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+    char* errorMessage = "page generation interrupted by exit command";
+
+    if ((objc != 1) && (objc != 2)) {
+        Tcl_WrongNumArgs(interp, 1, objv, "?returnCode?");
+        return TCL_ERROR;
+    }
+
+    if (objc == 1) {
+        value = 0;
+    } else if (Tcl_GetIntFromObj(interp, objv[1], &value) != TCL_OK) {
+        return TCL_ERROR;
+    }
+
+    if (globals->script_exit)
+    {
+        return TCL_OK;
+    }
+
+    /*
+     * Need to check the behavior is correct or not.
+     */
+    // globals->page_aborting = 1;
+    globals->script_exit = 1;
+    globals->abort_code = Tcl_NewDictObj();
+
+    /* The private->abort_code ref count is decremented before
+     * request processing terminates */
+
+    Tcl_IncrRefCount(globals->abort_code);
+
+    Tcl_DictObjPut(interp, globals->abort_code,
+                   Tcl_NewStringObj("error_code",-1),
+                   Tcl_NewStringObj("exit",-1));
+
+    Tcl_DictObjPut(interp, globals->abort_code,
+                   Tcl_NewStringObj("return_code",-1),
+                   Tcl_NewIntObj(value));
+
+    // globals->script_exit = 1;
+
+    Tcl_AddErrorInfo (interp, errorMessage);
+    Tcl_SetErrorCode (interp, "RIVET", SCRIPT_EXIT_CODE, errorMessage, (char *)NULL);
+
+    return TCL_ERROR;
+}
+
+
+/*
  *-----------------------------------------------------------------------------
  *
  * Rivet_InitCore --
@@ -485,10 +654,13 @@ Rivet_InitCore(Tcl_Interp *interp)
 {
 
     RIVET_OBJ_CMD ("headers",Rivet_Headers,NULL);
+    RIVET_OBJ_CMD ("abort_page",Rivet_AbortPageCmd,NULL);
+    RIVET_OBJ_CMD ("abort_code", Rivet_AbortCodeCmd,NULL);
     RIVET_OBJ_CMD ("include",Rivet_Include,NULL);
     RIVET_OBJ_CMD ("parse",Rivet_Parse,NULL);
     RIVET_OBJ_CMD ("no_body",Rivet_NoBody,NULL);
     RIVET_OBJ_CMD ("env",Rivet_EnvCmd,NULL);
+    RIVET_OBJ_CMD ("exit",Rivet_ExitCmd,NULL);
 
     {
         Tcl_Namespace *rivet_ns;
@@ -501,10 +673,13 @@ Rivet_InitCore(Tcl_Interp *interp)
         }
 
         RIVET_EXPORT_CMD(interp,rivet_ns,"headers");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"abort_page");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"abort_code");
         RIVET_EXPORT_CMD(interp,rivet_ns,"include");
         RIVET_EXPORT_CMD(interp,rivet_ns,"parse");
         RIVET_EXPORT_CMD(interp,rivet_ns,"no_body");
         RIVET_EXPORT_CMD(interp,rivet_ns,"env");
+        // ::rivet::exit is not exported
     }
 
     return TCL_OK;

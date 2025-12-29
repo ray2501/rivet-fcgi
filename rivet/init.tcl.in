@@ -76,6 +76,19 @@ proc ::Rivet::init {} {
             namespace export {*}$export_list
         }
     }
+
+    ## We move Tcl's exit command out of the way and replace it with
+    ## our own that handles bailing from a page request properly.
+
+    if {[info commands ::rivet::exit] != ""} {
+
+        rename ::exit ::Rivet::tclcore_exit
+        proc ::exit {code} {
+            if {![string is integer -strict $code]} { set code 0 }
+            ::rivet::exit $code
+        }
+
+    }
 }
 
 

@@ -14,6 +14,9 @@ typedef struct TclWebRequest {
 typedef struct _interp_globals {
     char *scriptfile;
     TclWebRequest *req;
+    int script_exit;
+    int page_aborting;
+    Tcl_Obj *abort_code;
 } interp_globals;
 
 /*
