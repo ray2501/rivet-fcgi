@@ -22,6 +22,17 @@ typedef struct _interp_globals {
 /*
  *-----------------------------------------------------------------------------
  *
+ * TclWeb_InitRequest --
+ * Initializes the request structure.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+int TclWeb_InitRequest(TclWebRequest *req, void *arg);
+
+/*
+ *-----------------------------------------------------------------------------
+ *
  * TclWeb_SendHeaders --
  * Sends HTTP headers.
  *

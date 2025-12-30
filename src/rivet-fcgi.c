@@ -123,19 +123,12 @@ int main(int argc, char *argv[]) {
         }
 
         /*
-         * initialize globals
+         * Initialize globals
          */
         globals = (interp_globals *)Tcl_Alloc(sizeof(interp_globals));
         globals->scriptfile = NULL;
         globals->req = (TclWebRequest *)Tcl_Alloc(sizeof(TclWebRequest));
-        globals->req->headers =
-            (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
-        Tcl_InitHashTable(globals->req->headers, TCL_STRING_KEYS);
-
-        globals->req->headers_printed = 0;
-        globals->req->headers_set = 0;
-        globals->req->content_sent = 0;
-        globals->req->status = 0;
+        TclWeb_InitRequest(globals->req, NULL);
 
         globals->script_exit = 0;
         globals->page_aborting = 0;
