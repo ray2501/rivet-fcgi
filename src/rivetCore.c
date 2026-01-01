@@ -183,6 +183,159 @@ TCL_CMD_HEADER( Rivet_Headers )
 
 
 /*
+ *-----------------------------------------------------------------------------
+ *
+ *  Rivet_Var --
+ *
+ *      Returns information about GET or POST variables:
+ *
+ *      var get foo ?default?
+ *      var list foo
+ *      var names
+ *      var number
+ *      var all
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ * Side Effects:
+ *      None.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER ( Rivet_Var )
+{
+    char *cmd;
+    char *p;
+    char *command;
+    Tcl_Obj *result = NULL;
+    int source;
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    if (objc < 2 || objc > 4)
+    {
+        Tcl_WrongNumArgs(interp, 1, objv,
+                         "(get varname ?default?|list varname|exists varname|names"
+                         "|number|all)");
+        return TCL_ERROR;
+    }
+    cmd = Tcl_GetString(objv[0]);
+    command = Tcl_GetString(objv[1]);
+    result = Tcl_NewObj();
+
+    /* determine if var_qs, var_post or var was called */
+
+    /* first of all we have to skip the namespace string at the beginning of the command:
+     *
+     * This fragment of code is taken from tcl 8.6.6 (tclNamesp.c) and it's part of the
+     * function implementing Tcl "namespace tail", as such it should be authoritative
+     * regarding the determination of the namespace stripped command name
+     */
+
+    for (p = cmd;  *p != '\0';  p++) {
+        /* empty body */
+    }
+
+    while (--p > cmd) {
+        if ((*p == ':') && (*(p-1) == ':')) {
+            p++;			/* Just after the last "::" */
+            break;
+        }
+    }
+    cmd = p;
+
+    if (!strcmp(cmd, "var_qs")) source = VAR_SRC_QUERYSTRING;
+    else if (!strcmp(cmd, "var_post")) source = VAR_SRC_POST;
+    else source = VAR_SRC_ALL;
+
+    if (!strcmp(command, "get"))
+    {
+        char *key = NULL;
+        char *deflt = NULL;
+        if (objc != 3 && objc != 4)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "variablename ?defaultval?");
+            return TCL_ERROR;
+        }
+        key = Tcl_GetStringFromObj(objv[2], NULL);
+        if (objc == 4)
+        {
+            deflt = Tcl_GetString(objv[3]);
+        }
+
+        if (TclWeb_GetVar(result, key, source, globals->req) != TCL_OK)
+        {
+            if (deflt == NULL) {
+                Tcl_SetStringObj(result, "", -1);
+            } else {
+                Tcl_SetStringObj(result, deflt, -1);
+            }
+        }
+    } else if(!strcmp(command, "exists")) {
+        char *key;
+        if (objc != 3)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "variablename");
+            return TCL_ERROR;
+        }
+        key = Tcl_GetString(objv[2]);
+
+        TclWeb_VarExists(result, key, source, globals->req);
+    } else if(!strcmp(command, "list")) {
+        char *key;
+        if (objc != 3)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, "variablename");
+            return TCL_ERROR;
+        }
+        key = Tcl_GetStringFromObj(objv[2], NULL);
+
+        if (TclWeb_GetVarAsList(result, key, source, globals->req) != TCL_OK)
+        {
+            result = Tcl_NewStringObj("", -1);
+        }
+    } else if(!strcmp(command, "names")) {
+        if (objc != 2)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, NULL);
+            return TCL_ERROR;
+        }
+
+        if (TclWeb_GetVarNames(result, source, globals->req) != TCL_OK)
+        {
+            result = Tcl_NewStringObj("", -1);
+        }
+    } else if(!strcmp(command, "number")) {
+        if (objc != 2)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, NULL);
+            return TCL_ERROR;
+        }
+
+        TclWeb_VarNumber(result, source, globals->req);
+    } else if(!strcmp(command, "all")) {
+        if (objc != 2)
+        {
+            Tcl_WrongNumArgs(interp, 2, objv, NULL);
+            return TCL_ERROR;
+        }
+        if (TclWeb_GetAllVars(result, source, globals->req) != TCL_OK)
+        {
+            result = Tcl_NewStringObj("", -1);
+        }
+    } else {
+        /* bad command  */
+        Tcl_AppendResult(interp, "bad option: must be one of ",
+                         "'get, list, names, number, all'", NULL);
+        return TCL_ERROR;
+    }
+    Tcl_SetObjResult(interp, result);
+
+    return TCL_OK;
+}
+
+/*
  * -----------------------------------------------------------------------------
  *
  * Rivet_AbortPageCmd --
@@ -268,6 +421,7 @@ TCL_CMD_HEADER( Rivet_AbortPageCmd )
  *
  *-----------------------------------------------------------------------------
  */
+
 TCL_CMD_HEADER( Rivet_AbortCodeCmd )
 {
     interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
@@ -277,6 +431,41 @@ TCL_CMD_HEADER( Rivet_AbortCodeCmd )
         Tcl_SetObjResult(interp,globals->abort_code);
     }
 
+    return TCL_OK;
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * Rivet_RawPost --
+ *
+ *      Returns the raw POST data.
+ *
+ * Results:
+ *      The raw post data, or an empty string if there is none.
+ *
+ * Side Effects:
+ *      None.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER ( Rivet_RawPost )
+{
+    int length = 0;
+    char *data = NULL;
+    Tcl_Obj *retval;
+    interp_globals *globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    data = TclWeb_GetRawPost(globals->req, &length);
+
+    if (!data) {
+        data = "";
+    }
+
+    retval = Tcl_NewStringObj(data, length);
+    Tcl_SetObjResult(interp, retval);
     return TCL_OK;
 }
 
@@ -559,6 +748,7 @@ TCL_CMD_HEADER( Rivet_EnvCmd )
     key = Tcl_GetStringFromObj (objv[1],NULL);
 
     val = getenv (key);
+    if (!val) val = "";
 
     Tcl_SetObjResult(interp, Tcl_NewStringObj( val, -1 ) );
     return TCL_OK;
@@ -654,8 +844,12 @@ Rivet_InitCore(Tcl_Interp *interp)
 {
 
     RIVET_OBJ_CMD ("headers",Rivet_Headers,NULL);
+    RIVET_OBJ_CMD ("var",Rivet_Var,NULL);
     RIVET_OBJ_CMD ("abort_page",Rivet_AbortPageCmd,NULL);
     RIVET_OBJ_CMD ("abort_code", Rivet_AbortCodeCmd,NULL);
+    RIVET_OBJ_CMD ("var_qs",Rivet_Var,NULL);
+    RIVET_OBJ_CMD ("var_post",Rivet_Var,NULL);
+    RIVET_OBJ_CMD ("raw_post",Rivet_RawPost,NULL);
     RIVET_OBJ_CMD ("include",Rivet_Include,NULL);
     RIVET_OBJ_CMD ("parse",Rivet_Parse,NULL);
     RIVET_OBJ_CMD ("no_body",Rivet_NoBody,NULL);
@@ -673,8 +867,12 @@ Rivet_InitCore(Tcl_Interp *interp)
         }
 
         RIVET_EXPORT_CMD(interp,rivet_ns,"headers");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"var");
         RIVET_EXPORT_CMD(interp,rivet_ns,"abort_page");
         RIVET_EXPORT_CMD(interp,rivet_ns,"abort_code");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"var_qs");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"var_post");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"raw_post");
         RIVET_EXPORT_CMD(interp,rivet_ns,"include");
         RIVET_EXPORT_CMD(interp,rivet_ns,"parse");
         RIVET_EXPORT_CMD(interp,rivet_ns,"no_body");

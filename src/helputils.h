@@ -1,7 +1,7 @@
-#include <tcl.h>
-
 #ifndef __HELPUTILS_H__
 #define __HELPUTILS_H__
+
+#include <tcl.h>
 
 #ifndef F_OK
 #    define F_OK 00
@@ -22,5 +22,7 @@
 extern const char *FileSuffix(const char path[]);
 
 extern void LogMessage(const char* format, ...);
+
+extern void ParseQueryString(Tcl_HashTable *qs, char *query_string);
 
 #endif

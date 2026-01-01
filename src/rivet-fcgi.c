@@ -20,6 +20,51 @@ void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
             Tcl_Free(globals->scriptfile);
 
         if (globals->req) {
+            if (globals->req->info) {
+                if (globals->req->info->query_string) {
+                    char *hashvalue = NULL;
+                    Tcl_HashEntry *entry = NULL;
+                    Tcl_HashSearch search;
+
+                    for (entry = Tcl_FirstHashEntry(
+                             globals->req->info->query_string, &search);
+                         entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                        hashvalue = (char *)Tcl_GetHashValue(entry);
+                        if (hashvalue)
+                            Tcl_Free(hashvalue);
+
+                        Tcl_DeleteHashEntry(entry);
+                    }
+
+                    Tcl_DeleteHashTable(globals->req->info->query_string);
+                    Tcl_Free((char *)globals->req->info->query_string);
+                }
+
+                if (globals->req->info->post) {
+                    char *hashvalue = NULL;
+                    Tcl_HashEntry *entry = NULL;
+                    Tcl_HashSearch search;
+
+                    for (entry = Tcl_FirstHashEntry(globals->req->info->post,
+                                                    &search);
+                         entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                        hashvalue = (char *)Tcl_GetHashValue(entry);
+                        if (hashvalue)
+                            Tcl_Free(hashvalue);
+
+                        Tcl_DeleteHashEntry(entry);
+                    }
+
+                    Tcl_DeleteHashTable(globals->req->info->post);
+                    Tcl_Free((char *)globals->req->info->post);
+                }
+
+                if (globals->req->info->raw_post)
+                    Tcl_Free(globals->req->info->raw_post);
+
+                Tcl_Free((char *)globals->req->info);
+            }
+
             if (globals->req->headers) {
                 char *hashvalue = NULL;
                 Tcl_HashEntry *entry = NULL;
@@ -127,8 +172,9 @@ int main(int argc, char *argv[]) {
          */
         globals = (interp_globals *)Tcl_Alloc(sizeof(interp_globals));
         globals->scriptfile = NULL;
+
         globals->req = (TclWebRequest *)Tcl_Alloc(sizeof(TclWebRequest));
-        TclWeb_InitRequest(globals->req, NULL);
+        TclWeb_InitRequest(globals->req, interp, NULL);
 
         globals->script_exit = 0;
         globals->page_aborting = 0;

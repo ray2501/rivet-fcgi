@@ -1,16 +1,125 @@
 #include "tclWeb.h"
+#include "helputils.h"
 #include <fcgi_stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define DEFAULT_HEADER_TYPE "text/html; charset=utf-8"
 
-int TclWeb_InitRequest(TclWebRequest *req, void *arg) {
+int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
+    char *request_method = NULL;
+    char *query_string = NULL;
+    char *content_length = NULL;
+    char *content_type = NULL;
+
+    req->interp = interp;
+
+    req->info = (RequestInfo *)Tcl_Alloc(sizeof(RequestInfo));
+    req->info->method = HTTP_GET;
+    req->info->query_string = NULL;
+    req->info->post = NULL;
+    req->info->raw_length = 0;
+    req->info->raw_post = NULL;
+
+    request_method = getenv("REQUEST_METHOD");
+    if (request_method == NULL) {
+        // Set the value to HTTP_GET (maybe debug in console)
+        req->info->method = HTTP_GET;
+    } else if (!strcmp(request_method, "GET")) {
+        req->info->method = HTTP_GET;
+    } else if (!strcmp(request_method, "HEAD")) {
+        req->info->method = HTTP_HEAD;
+    } else if (!strcmp(request_method, "PUT")) {
+        req->info->method = HTTP_PUT;
+    } else if (!strcmp(request_method, "POST")) {
+        req->info->method = HTTP_POST;
+    } else if (!strcmp(request_method, "DELETE")) {
+        req->info->method = HTTP_DELETE;
+    }
+
+    query_string = getenv("QUERY_STRING");
+
+    if (query_string == NULL || strlen(query_string) < 1) {
+        req->info->query_string = NULL;
+    } else {
+        char *parseString = NULL;
+
+        req->info->query_string =
+            (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
+        Tcl_InitHashTable(req->info->query_string, TCL_STRING_KEYS);
+
+        parseString = Tcl_Alloc(strlen(query_string) + 1);
+        strcpy(parseString, query_string);
+
+        ParseQueryString(req->info->query_string, parseString);
+        if (parseString)
+            Tcl_Free(parseString);
+    }
+
+    /*
+     * Need more chechk for this
+     */
+    if (req->info->method != HTTP_GET) {
+        content_length = getenv("CONTENT_LENGTH");
+        if (content_length) {
+            req->info->raw_length = atol(content_length);
+            req->info->raw_post = Tcl_Alloc(req->info->raw_length + 1);
+
+            if (req->info->raw_post) {
+                size_t bytes_read =
+                    fread(req->info->raw_post, 1, req->info->raw_length, stdin);
+
+                if (bytes_read == req->info->raw_length) {
+                    req->info->raw_post[req->info->raw_length] = '\0';
+                } else {
+                    LogMessage("Read POST body failed.");
+                    if (req->info->raw_post)
+                        Tcl_Free(req->info->raw_post);
+                    req->info->raw_post = NULL;
+                    req->info->raw_length = 0;
+                }
+            }
+        }
+
+        if (req->info->raw_post) {
+            content_type = getenv("CONTENT_TYPE");
+            if (content_type == NULL || strlen(content_type) < 1) {
+                req->info->post = NULL;
+            } else {
+                if (strcmp(content_type, "application/x-www-form-urlencoded") ==
+                    0) {
+                    char *parseString = NULL;
+
+                    req->info->post =
+                        (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
+
+                    Tcl_InitHashTable(req->info->post, TCL_STRING_KEYS);
+
+                    parseString = Tcl_Alloc(req->info->raw_length + 1);
+                    strcpy(parseString, req->info->raw_post);
+
+                    ParseQueryString(req->info->post, parseString);
+                    if (parseString)
+                        Tcl_Free(parseString);
+                } else {
+                    req->info->post = NULL;
+                }
+            }
+        }
+    }
+
     req->headers = (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
     Tcl_InitHashTable(req->headers, TCL_STRING_KEYS);
 
     req->headers_printed = 0;
     req->headers_set = 0;
-    req->content_sent = 0;
+
+    if (req->info->method == HTTP_HEAD) {
+        req->content_sent = 1;
+    } else {
+        req->content_sent = 0;
+    }
+
     req->status = 0;
 }
 
@@ -174,4 +283,320 @@ int TclWeb_SetStatus(int status, TclWebRequest *req) {
 
     req->status = status;
     return TCL_OK;
+}
+
+int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
+                  TclWebRequest *req) {
+    int flag = 0;
+
+    if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
+        if (req->info->query_string) {
+            char *hashkey = NULL;
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->query_string, entry);
+                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                    if (flag == 0) {
+                        Tcl_SetStringObj(result, hashvalue, -1);
+                        flag = 1;
+                    } else {
+                        Tcl_Obj *tmpobj;
+                        Tcl_Obj *tmpobjv[2];
+                        tmpobjv[0] = result;
+                        tmpobjv[1] = Tcl_NewStringObj(hashvalue, -1);
+                        tmpobj = Tcl_ConcatObj(2, tmpobjv);
+                        Tcl_SetStringObj(result, Tcl_GetString(tmpobj), -1);
+                    }
+                }
+            }
+        }
+    }
+
+    if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
+        if (req->info->post) {
+            char *hashkey = NULL;
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->post, entry);
+                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                    if (flag == 0) {
+                        Tcl_SetStringObj(result, hashvalue, -1);
+                        flag = 1;
+                    } else {
+                        Tcl_Obj *tmpobj;
+                        Tcl_Obj *tmpobjv[2];
+                        tmpobjv[0] = result;
+                        tmpobjv[1] = Tcl_NewStringObj(hashvalue, -1);
+                        tmpobj = Tcl_ConcatObj(2, tmpobjv);
+                        Tcl_SetStringObj(result, Tcl_GetString(tmpobj), -1);
+                    }
+                }
+            }
+        }
+    }
+
+    if (result->length == 0) {
+        return TCL_ERROR;
+    }
+
+    return TCL_OK;
+}
+
+int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
+                        TclWebRequest *req) {
+    int length = 0;
+
+    if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
+        if (req->info->query_string) {
+            char *hashkey = NULL;
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->query_string, entry);
+                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                    Tcl_ListObjAppendElement(req->interp, result,
+                                             Tcl_NewStringObj(hashvalue, -1));
+                }
+            }
+        }
+    }
+
+    if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
+        if (req->info->post) {
+            char *hashkey = NULL;
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->post, entry);
+                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                    Tcl_ListObjAppendElement(req->interp, result,
+                                             Tcl_NewStringObj(hashvalue, -1));
+                }
+            }
+        }
+    }
+
+    Tcl_ListObjLength(req->interp, result, &length);
+    if (length == 0) {
+        return TCL_ERROR;
+    }
+
+    return TCL_OK;
+}
+
+int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source,
+                     TclWebRequest *req) {
+
+    if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
+        if (req->info->query_string) {
+            char *hashkey = NULL;
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->query_string, entry);
+                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                    Tcl_SetIntObj(result, 1);
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
+        if (req->info->post) {
+            char *hashkey = NULL;
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->post, entry);
+                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                    Tcl_SetIntObj(result, 1);
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    Tcl_SetIntObj(result, 0);
+    return TCL_OK;
+}
+
+int TclWeb_VarNumber(Tcl_Obj *result, int source, TclWebRequest *req) {
+    int count = 0;
+
+    if (source == VAR_SRC_QUERYSTRING) {
+        if (req->info->query_string) {
+            Tcl_SetIntObj(result, req->info->query_string->numEntries);
+        } else {
+            Tcl_SetIntObj(result, 0);
+        }
+    } else if (source == VAR_SRC_POST) {
+        if (req->info->post) {
+            Tcl_SetIntObj(result, req->info->post->numEntries);
+        } else {
+            Tcl_SetIntObj(result, 0);
+        }
+    } else {
+        count = 0;
+
+        if (req->info->query_string) {
+            count = count + req->info->query_string->numEntries;
+        }
+
+        if (req->info->post) {
+            count = count + req->info->post->numEntries;
+        }
+
+        Tcl_SetIntObj(result, count);
+    }
+
+    return TCL_OK;
+}
+
+int TclWeb_GetVarNames(Tcl_Obj *result, int source, TclWebRequest *req) {
+    int length = 0;
+
+    if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
+        if (req->info->query_string) {
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+            char *hashkey = NULL;
+
+            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->query_string, entry);
+                Tcl_ListObjAppendElement(req->interp, result,
+                                         Tcl_NewStringObj(hashkey, -1));
+            }
+        }
+    }
+
+    if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
+        if (req->info->post) {
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+            char *hashkey = NULL;
+
+            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                hashkey = Tcl_GetHashKey(req->info->post, entry);
+                Tcl_ListObjAppendElement(req->interp, result,
+                                         Tcl_NewStringObj(hashkey, -1));
+            }
+        }
+    }
+
+    Tcl_ListObjLength(req->interp, result, &length);
+    if (length == 0) {
+        return TCL_ERROR;
+    }
+
+    return TCL_OK;
+}
+
+int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req) {
+    int length = 0;
+
+    if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
+        if (req->info->query_string) {
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                Tcl_ListObjAppendElement(
+                    req->interp, result,
+                    Tcl_NewStringObj(
+                        Tcl_GetHashKey(req->info->query_string, entry), -1));
+
+                hashvalue = (char *)Tcl_GetHashValue(entry);
+                Tcl_ListObjAppendElement(req->interp, result,
+                                         Tcl_NewStringObj(hashvalue, -1));
+            }
+        }
+    }
+
+    if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
+        if (req->info->post) {
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+                Tcl_ListObjAppendElement(
+                    req->interp, result,
+                    Tcl_NewStringObj(Tcl_GetHashKey(req->info->post, entry),
+                                     -1));
+
+                hashvalue = (char *)Tcl_GetHashValue(entry);
+                Tcl_ListObjAppendElement(req->interp, result,
+                                         Tcl_NewStringObj(hashvalue, -1));
+            }
+        }
+    }
+
+    Tcl_ListObjLength(req->interp, result, &length);
+    if (length == 0) {
+        return TCL_ERROR;
+    }
+
+    return TCL_OK;
+}
+
+/*
+ * -----------------------------------------------------------------------------
+ *
+ * TclWeb_GetRawPost --
+ *
+ *  Fetch the raw POST data from the request.
+ *
+ * Results:
+ *  The data, or NULL if it's not a POST or there is no data.
+ *
+ * Side Effects:
+ *  None.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+char *TclWeb_GetRawPost(TclWebRequest *req, int *len) {
+    *len = req->info->raw_length;
+
+    return req->info->raw_post;
 }
