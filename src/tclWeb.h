@@ -13,7 +13,8 @@ enum http_method {
     HTTP_HEAD,
     HTTP_PUT,
     HTTP_POST,
-    HTTP_DELETE
+    HTTP_DELETE,
+    HTTP_PATCH
 };
 
 typedef struct RequestInfo {

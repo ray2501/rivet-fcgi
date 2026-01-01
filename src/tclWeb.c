@@ -35,6 +35,8 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
         req->info->method = HTTP_POST;
     } else if (!strcmp(request_method, "DELETE")) {
         req->info->method = HTTP_DELETE;
+    } else if (!strcmp(request_method, "PATCH")) {
+        req->info->method = HTTP_PATCH;
     }
 
     query_string = getenv("QUERY_STRING");
