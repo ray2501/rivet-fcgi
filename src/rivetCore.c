@@ -537,7 +537,7 @@ TCL_CMD_HEADER( Rivet_Parse )
 
     if (!strcmp(Tcl_DStringValue(&fullpath), scriptfile))
     {
-        fprintf(stderr, "Rivet_Parse: Cannot recursively call the same file!");
+        LogMessage("Rivet_Parse: Cannot recursively call the same file!");
         Tcl_DStringFree(&fullpath);
         return TCL_ERROR;
     }
@@ -547,14 +547,14 @@ TCL_CMD_HEADER( Rivet_Parse )
      */
     pathPtr = Tcl_NewStringObj(Tcl_DStringValue(&fullpath), -1);
     if (!pathPtr) {
-        fprintf(stderr, "Rivet_Parse: Something is wrong.");
+        LogMessage("Rivet_Parse: Something is wrong.");
         Tcl_DStringFree(&fullpath);
         return TCL_ERROR;
     }
 
     Tcl_IncrRefCount(pathPtr);
     if (Tcl_FSAccess(pathPtr, R_OK)) {
-        fprintf(stderr, "Rivet_Parse: File cannot read.\n");
+        LogMessage("Rivet_Parse: File cannot read.");
         Tcl_DStringFree(&fullpath);
         Tcl_DecrRefCount(pathPtr);
         return TCL_ERROR;
@@ -568,7 +568,7 @@ TCL_CMD_HEADER( Rivet_Parse )
     Tcl_DStringFree(&fullpath);
     if (result != TCL_OK)
     {
-        fprintf(stderr, "Rivet_Parse: Could not read file ");
+        LogMessage("Rivet_Parse: Could not read file.");
         Tcl_DecrRefCount(script);
         return result;
     }
