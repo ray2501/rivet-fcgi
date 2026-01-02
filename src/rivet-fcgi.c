@@ -22,16 +22,18 @@ void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
         if (globals->req) {
             if (globals->req->info) {
                 if (globals->req->info->query_string) {
-                    char *hashvalue = NULL;
+                    Tcl_Obj *hashvalue = NULL;
                     Tcl_HashEntry *entry = NULL;
                     Tcl_HashSearch search;
 
                     for (entry = Tcl_FirstHashEntry(
                              globals->req->info->query_string, &search);
                          entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-                        hashvalue = (char *)Tcl_GetHashValue(entry);
-                        if (hashvalue)
-                            Tcl_Free(hashvalue);
+                        hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                        if (hashvalue) {
+                            Tcl_DecrRefCount(hashvalue);
+                            hashvalue = NULL;
+                        }
 
                         Tcl_DeleteHashEntry(entry);
                     }
@@ -41,16 +43,18 @@ void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
                 }
 
                 if (globals->req->info->post) {
-                    char *hashvalue = NULL;
+                    Tcl_Obj *hashvalue = NULL;
                     Tcl_HashEntry *entry = NULL;
                     Tcl_HashSearch search;
 
                     for (entry = Tcl_FirstHashEntry(globals->req->info->post,
                                                     &search);
                          entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-                        hashvalue = (char *)Tcl_GetHashValue(entry);
-                        if (hashvalue)
-                            Tcl_Free(hashvalue);
+                        hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                        if (hashvalue) {
+                            Tcl_DecrRefCount(hashvalue);
+                            hashvalue = NULL;
+                        }
 
                         Tcl_DeleteHashEntry(entry);
                     }

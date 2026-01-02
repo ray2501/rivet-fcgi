@@ -94,7 +94,8 @@ char *DecodeUrlstring(const char *src) {
     return dst;
 }
 
-void ParseQueryString(Tcl_HashTable *qs, char *query_string) {
+void ParseQueryString(Tcl_Interp *interp, Tcl_HashTable *qs,
+                      char *query_string) {
     const char outer_delimiters[] = "&";
     const char inner_delimiters[] = "=";
 
@@ -108,26 +109,34 @@ void ParseQueryString(Tcl_HashTable *qs, char *query_string) {
         char *inner_token = strtok_r(token, inner_delimiters, &inner_saveptr);
         Tcl_HashEntry *entry = NULL;
         int isNew = 0;
-        char *hashvalue = NULL;
+        Tcl_Obj *hashvalue = NULL;
         char *key = NULL;
         char *value = NULL;
         char *empty = "";
 
         if (inner_token) {
             key = DecodeUrlstring(inner_token);
-            entry = Tcl_CreateHashEntry(qs, key, &isNew);
+            entry = Tcl_FindHashEntry(qs, key);
+            if (entry == NULL) {
+                entry = Tcl_CreateHashEntry(qs, key, &isNew);
+                hashvalue = Tcl_NewListObj(1, NULL);
+                Tcl_IncrRefCount(hashvalue);
+            } else {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+            }
 
             inner_token = strtok_r(NULL, inner_delimiters, &inner_saveptr);
             if (inner_token) {
                 value = DecodeUrlstring(inner_token);
-                hashvalue = (char *)Tcl_Alloc(strlen(value) + 1);
-                strcpy(hashvalue, value);
+
+                Tcl_ListObjAppendElement(interp, hashvalue,
+                                         Tcl_NewStringObj(value, -1));
                 Tcl_SetHashValue(entry, (ClientData)hashvalue);
 
                 free(value);
             } else {
-                hashvalue = (char *)Tcl_Alloc(strlen(empty) + 1);
-                strcpy(hashvalue, empty);
+                Tcl_ListObjAppendElement(interp, hashvalue,
+                                         Tcl_NewStringObj(empty, -1));
                 Tcl_SetHashValue(entry, (ClientData)hashvalue);
             }
 

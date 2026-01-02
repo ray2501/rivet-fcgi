@@ -53,7 +53,7 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
         parseString = Tcl_Alloc(strlen(query_string) + 1);
         strcpy(parseString, query_string);
 
-        ParseQueryString(req->info->query_string, parseString);
+        ParseQueryString(interp, req->info->query_string, parseString);
         if (parseString)
             Tcl_Free(parseString);
     }
@@ -94,13 +94,12 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
 
                     req->info->post =
                         (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
-
                     Tcl_InitHashTable(req->info->post, TCL_STRING_KEYS);
 
                     parseString = Tcl_Alloc(req->info->raw_length + 1);
                     strcpy(parseString, req->info->raw_post);
 
-                    ParseQueryString(req->info->post, parseString);
+                    ParseQueryString(interp, req->info->post, parseString);
                     if (parseString)
                         Tcl_Free(parseString);
                 } else {
@@ -290,28 +289,32 @@ int TclWeb_SetStatus(int status, TclWebRequest *req) {
 int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
                   TclWebRequest *req) {
     int flag = 0;
-
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
-            char *hashkey = NULL;
-            char *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
-            Tcl_HashSearch search;
+            entry = Tcl_FindHashEntry(req->info->query_string, varname);
+            if (entry) {
+                Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                int listObjc;
+                Tcl_Obj **listObjv;
+                int i;
 
-            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
-                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
+                                           &listObjv) != TCL_OK) {
+                    return TCL_ERROR;
+                }
 
-                hashkey = Tcl_GetHashKey(req->info->query_string, entry);
-                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
-                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                for (i = 0; i < listObjc; i++) {
+                    char *element = Tcl_GetString(listObjv[i]);
+
                     if (flag == 0) {
-                        Tcl_SetStringObj(result, hashvalue, -1);
+                        Tcl_SetStringObj(result, element, -1);
                         flag = 1;
                     } else {
                         Tcl_Obj *tmpobj;
                         Tcl_Obj *tmpobjv[2];
                         tmpobjv[0] = result;
-                        tmpobjv[1] = Tcl_NewStringObj(hashvalue, -1);
+                        tmpobjv[1] = Tcl_NewStringObj(element, -1);
                         tmpobj = Tcl_ConcatObj(2, tmpobjv);
                         Tcl_SetStringObj(result, Tcl_GetString(tmpobj), -1);
                     }
@@ -322,25 +325,30 @@ int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
 
     if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
         if (req->info->post) {
-            char *hashkey = NULL;
-            char *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
-            Tcl_HashSearch search;
+            entry = Tcl_FindHashEntry(req->info->post, varname);
+            if (entry) {
+                Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                int listObjc;
+                Tcl_Obj **listObjv;
+                int i;
 
-            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
-                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
+                                           &listObjv) != TCL_OK) {
+                    return TCL_ERROR;
+                }
 
-                hashkey = Tcl_GetHashKey(req->info->post, entry);
-                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
-                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                for (i = 0; i < listObjc; i++) {
+                    char *element = Tcl_GetString(listObjv[i]);
+
                     if (flag == 0) {
-                        Tcl_SetStringObj(result, hashvalue, -1);
+                        Tcl_SetStringObj(result, element, -1);
                         flag = 1;
                     } else {
                         Tcl_Obj *tmpobj;
                         Tcl_Obj *tmpobjv[2];
                         tmpobjv[0] = result;
-                        tmpobjv[1] = Tcl_NewStringObj(hashvalue, -1);
+                        tmpobjv[1] = Tcl_NewStringObj(element, -1);
                         tmpobj = Tcl_ConcatObj(2, tmpobjv);
                         Tcl_SetStringObj(result, Tcl_GetString(tmpobj), -1);
                     }
@@ -362,19 +370,24 @@ int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
 
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
-            char *hashkey = NULL;
-            char *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
-            Tcl_HashSearch search;
+            entry = Tcl_FindHashEntry(req->info->query_string, varname);
+            if (entry) {
+                Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                int listObjc;
+                Tcl_Obj **listObjv;
+                int i;
 
-            for (entry = Tcl_FirstHashEntry(req->info->query_string, &search);
-                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
+                                           &listObjv) != TCL_OK) {
+                    return TCL_ERROR;
+                }
 
-                hashkey = Tcl_GetHashKey(req->info->query_string, entry);
-                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
-                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                for (i = 0; i < listObjc; i++) {
+                    char *element = Tcl_GetString(listObjv[i]);
+
                     Tcl_ListObjAppendElement(req->interp, result,
-                                             Tcl_NewStringObj(hashvalue, -1));
+                                             Tcl_NewStringObj(element, -1));
                 }
             }
         }
@@ -382,19 +395,24 @@ int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
 
     if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
         if (req->info->post) {
-            char *hashkey = NULL;
-            char *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
-            Tcl_HashSearch search;
+            entry = Tcl_FindHashEntry(req->info->post, varname);
+            if (entry) {
+                Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                int listObjc;
+                Tcl_Obj **listObjv;
+                int i;
 
-            for (entry = Tcl_FirstHashEntry(req->info->post, &search);
-                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
+                                           &listObjv) != TCL_OK) {
+                    return TCL_ERROR;
+                }
 
-                hashkey = Tcl_GetHashKey(req->info->post, entry);
-                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
-                    hashvalue = (char *)Tcl_GetHashValue(entry);
+                for (i = 0; i < listObjc; i++) {
+                    char *element = Tcl_GetString(listObjv[i]);
+
                     Tcl_ListObjAppendElement(req->interp, result,
-                                             Tcl_NewStringObj(hashvalue, -1));
+                                             Tcl_NewStringObj(element, -1));
                 }
             }
         }
@@ -533,7 +551,7 @@ int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req) {
 
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
-            char *hashvalue = NULL;
+            Tcl_Obj *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
             Tcl_HashSearch search;
 
@@ -545,16 +563,15 @@ int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req) {
                     Tcl_NewStringObj(
                         Tcl_GetHashKey(req->info->query_string, entry), -1));
 
-                hashvalue = (char *)Tcl_GetHashValue(entry);
-                Tcl_ListObjAppendElement(req->interp, result,
-                                         Tcl_NewStringObj(hashvalue, -1));
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                Tcl_ListObjAppendElement(req->interp, result, hashvalue);
             }
         }
     }
 
     if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
         if (req->info->post) {
-            char *hashvalue = NULL;
+            Tcl_Obj *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
             Tcl_HashSearch search;
 
@@ -566,9 +583,8 @@ int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req) {
                     Tcl_NewStringObj(Tcl_GetHashKey(req->info->post, entry),
                                      -1));
 
-                hashvalue = (char *)Tcl_GetHashValue(entry);
-                Tcl_ListObjAppendElement(req->interp, result,
-                                         Tcl_NewStringObj(hashvalue, -1));
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                Tcl_ListObjAppendElement(req->interp, result, hashvalue);
             }
         }
     }

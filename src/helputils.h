@@ -23,6 +23,6 @@ extern const char *FileSuffix(const char path[]);
 
 extern void LogMessage(const char* format, ...);
 
-extern void ParseQueryString(Tcl_HashTable *qs, char *query_string);
+extern void ParseQueryString(Tcl_Interp *interp, Tcl_HashTable *qs, char *query_string);
 
 #endif
