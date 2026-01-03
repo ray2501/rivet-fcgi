@@ -124,6 +124,78 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     req->status = 0;
 }
 
+void TclWeb_FreeRequest(TclWebRequest *req) {
+    if (req) {
+        if (req->info) {
+            if (req->info->query_string) {
+                Tcl_Obj *hashvalue = NULL;
+                Tcl_HashEntry *entry = NULL;
+                Tcl_HashSearch search;
+
+                for (entry =
+                         Tcl_FirstHashEntry(req->info->query_string, &search);
+                     entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                    hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                    if (hashvalue) {
+                        Tcl_DecrRefCount(hashvalue);
+                        hashvalue = NULL;
+                    }
+
+                    Tcl_DeleteHashEntry(entry);
+                }
+
+                Tcl_DeleteHashTable(req->info->query_string);
+                Tcl_Free((char *)req->info->query_string);
+            }
+
+            if (req->info->post) {
+                Tcl_Obj *hashvalue = NULL;
+                Tcl_HashEntry *entry = NULL;
+                Tcl_HashSearch search;
+
+                for (entry = Tcl_FirstHashEntry(req->info->post, &search);
+                     entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                    hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                    if (hashvalue) {
+                        Tcl_DecrRefCount(hashvalue);
+                        hashvalue = NULL;
+                    }
+
+                    Tcl_DeleteHashEntry(entry);
+                }
+
+                Tcl_DeleteHashTable(req->info->post);
+                Tcl_Free((char *)req->info->post);
+            }
+
+            if (req->info->raw_post)
+                Tcl_Free(req->info->raw_post);
+
+            Tcl_Free((char *)req->info);
+        }
+
+        if (req->headers) {
+            char *hashvalue = NULL;
+            Tcl_HashEntry *entry = NULL;
+            Tcl_HashSearch search;
+
+            for (entry = Tcl_FirstHashEntry(req->headers, &search);
+                 entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                hashvalue = (char *)Tcl_GetHashValue(entry);
+                if (hashvalue)
+                    Tcl_Free(hashvalue);
+
+                Tcl_DeleteHashEntry(entry);
+            }
+
+            Tcl_DeleteHashTable(req->headers);
+            Tcl_Free((char *)req->headers);
+        }
+
+        Tcl_Free((char *)req);
+    }
+}
+
 int TclWeb_SendHeaders(TclWebRequest *req) {
     int status = 0;
 

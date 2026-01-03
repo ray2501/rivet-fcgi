@@ -16,79 +16,13 @@ void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
     interp_globals *globals = clientData;
 
     if (globals) {
-        if (globals->scriptfile)
+        if (globals->scriptfile) {
             Tcl_Free(globals->scriptfile);
-
-        if (globals->req) {
-            if (globals->req->info) {
-                if (globals->req->info->query_string) {
-                    Tcl_Obj *hashvalue = NULL;
-                    Tcl_HashEntry *entry = NULL;
-                    Tcl_HashSearch search;
-
-                    for (entry = Tcl_FirstHashEntry(
-                             globals->req->info->query_string, &search);
-                         entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-                        hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-                        if (hashvalue) {
-                            Tcl_DecrRefCount(hashvalue);
-                            hashvalue = NULL;
-                        }
-
-                        Tcl_DeleteHashEntry(entry);
-                    }
-
-                    Tcl_DeleteHashTable(globals->req->info->query_string);
-                    Tcl_Free((char *)globals->req->info->query_string);
-                }
-
-                if (globals->req->info->post) {
-                    Tcl_Obj *hashvalue = NULL;
-                    Tcl_HashEntry *entry = NULL;
-                    Tcl_HashSearch search;
-
-                    for (entry = Tcl_FirstHashEntry(globals->req->info->post,
-                                                    &search);
-                         entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-                        hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-                        if (hashvalue) {
-                            Tcl_DecrRefCount(hashvalue);
-                            hashvalue = NULL;
-                        }
-
-                        Tcl_DeleteHashEntry(entry);
-                    }
-
-                    Tcl_DeleteHashTable(globals->req->info->post);
-                    Tcl_Free((char *)globals->req->info->post);
-                }
-
-                if (globals->req->info->raw_post)
-                    Tcl_Free(globals->req->info->raw_post);
-
-                Tcl_Free((char *)globals->req->info);
-            }
-
-            if (globals->req->headers) {
-                char *hashvalue = NULL;
-                Tcl_HashEntry *entry = NULL;
-                Tcl_HashSearch search;
-
-                for (entry = Tcl_FirstHashEntry(globals->req->headers, &search);
-                     entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-                    hashvalue = (char *)Tcl_GetHashValue(entry);
-                    if (hashvalue)
-                        Tcl_Free(hashvalue);
-
-                    Tcl_DeleteHashEntry(entry);
-                }
-
-                Tcl_DeleteHashTable(globals->req->headers);
-                Tcl_Free((char *)globals->req->headers);
-            }
-
-            Tcl_Free((char *)globals->req);
+            globals->scriptfile = NULL;
         }
+
+        TclWeb_FreeRequest(globals->req);
+        globals->req = NULL;
 
         Tcl_Free((char *)globals);
     }

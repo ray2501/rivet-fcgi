@@ -54,6 +54,8 @@ typedef struct _interp_globals {
 
 int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg);
 
+void TclWeb_FreeRequest(TclWebRequest *req);
+
 /*
  *-----------------------------------------------------------------------------
  *
