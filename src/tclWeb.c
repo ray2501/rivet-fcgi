@@ -1,11 +1,109 @@
 #include "tclWeb.h"
 #include "helputils.h"
 #include <fcgi_stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define DEFAULT_HEADER_TYPE "text/html; charset=utf-8"
 
+
+char HexToInt(char c) {
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return 0;
+}
+
+char *DecodeUrlstring(const char *src) {
+    char *dst = malloc(strlen(src) + 1);
+    char *d = dst;
+
+    while (*src) {
+        if (*src == '%') {
+            if (isxdigit(*(src + 1)) && isxdigit(*(src + 2))) {
+                *d++ = HexToInt(*(src + 1)) * 16 + HexToInt(*(src + 2));
+                src += 3;
+            } else {
+                // Invalid encoding, copy the '%' literal
+                *d++ = *src++;
+            }
+        } else if (*src == '+') {
+            *d++ = ' ';
+            src++;
+        } else {
+            *d++ = *src++;
+        }
+    }
+
+    *d = '\0'; // Null-terminate the destination string
+    return dst;
+}
+
+void ParseQueryString(Tcl_Interp *interp, Tcl_HashTable *qs,
+                      char *query_string) {
+    const char outer_delimiters[] = "&";
+    const char inner_delimiters[] = "=";
+
+    char *token;
+    char *outer_saveptr = NULL;
+    char *inner_saveptr = NULL;
+
+    token = strtok_r(query_string, outer_delimiters, &outer_saveptr);
+
+    while (token != NULL) {
+        char *inner_token = strtok_r(token, inner_delimiters, &inner_saveptr);
+        Tcl_HashEntry *entry = NULL;
+        int isNew = 0;
+        Tcl_Obj *hashvalue = NULL;
+        char *key = NULL;
+        char *value = NULL;
+        char *empty = "";
+
+        if (inner_token) {
+            key = DecodeUrlstring(inner_token);
+            entry = Tcl_FindHashEntry(qs, key);
+            if (entry == NULL) {
+                entry = Tcl_CreateHashEntry(qs, key, &isNew);
+                hashvalue = Tcl_NewListObj(1, NULL);
+                Tcl_IncrRefCount(hashvalue);
+            } else {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+            }
+
+            inner_token = strtok_r(NULL, inner_delimiters, &inner_saveptr);
+            if (inner_token) {
+                value = DecodeUrlstring(inner_token);
+
+                Tcl_ListObjAppendElement(interp, hashvalue,
+                                         Tcl_NewStringObj(value, -1));
+                Tcl_SetHashValue(entry, (ClientData)hashvalue);
+
+                free(value);
+            } else {
+                Tcl_ListObjAppendElement(interp, hashvalue,
+                                         Tcl_NewStringObj(empty, -1));
+                Tcl_SetHashValue(entry, (ClientData)hashvalue);
+            }
+
+            free(key);
+        }
+
+        token = strtok_r(NULL, outer_delimiters, &outer_saveptr);
+    }
+}
+
+/*
+ * -----------------------------------------------------------------------------
+ *
+ * TclWeb_InitRequest --
+ * Initializes the request structure.
+ *
+ *-----------------------------------------------------------------------------
+ */
 int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     char *request_method = NULL;
     char *query_string = NULL;
@@ -196,6 +294,17 @@ void TclWeb_FreeRequest(TclWebRequest *req) {
     }
 }
 
+/*
+ * -----------------------------------------------------------------------------
+ *
+ * TclWeb_SendHeaders --
+ * Sends HTTP headers.
+ *
+ * Results:
+ * HTTP headers output.  Things like cookies may no longer be manipulated.
+ *
+ *-----------------------------------------------------------------------------
+ */
 int TclWeb_SendHeaders(TclWebRequest *req) {
     int status = 0;
 
@@ -330,6 +439,14 @@ const char *TclWeb_OutputHeaderGet(char *header, TclWebRequest *req) {
     return NULL;
 }
 
+/*
+ * -----------------------------------------------------------------------------
+ *
+ * TclWeb_HeaderAdd --
+ * Adds an HTTP headers.
+ *
+ *-----------------------------------------------------------------------------
+ */
 int TclWeb_HeaderAdd(char *header, char *val, TclWebRequest *req) {
     if (req == NULL)
         return TCL_ERROR;
@@ -350,6 +467,14 @@ int TclWeb_HeaderAdd(char *header, char *val, TclWebRequest *req) {
     return TCL_OK;
 }
 
+/*
+ * -----------------------------------------------------------------------------
+ *
+ * TclWeb_SetStatus --
+ * Sets status number for reply.
+ *
+ *-----------------------------------------------------------------------------
+ */
 int TclWeb_SetStatus(int status, TclWebRequest *req) {
     if (req == NULL)
         return TCL_ERROR;
@@ -684,7 +809,6 @@ int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req) {
  *
  *-----------------------------------------------------------------------------
  */
-
 char *TclWeb_GetRawPost(TclWebRequest *req, int *len) {
     *len = req->info->raw_length;
 

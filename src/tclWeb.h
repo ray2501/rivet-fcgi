@@ -43,89 +43,24 @@ typedef struct _interp_globals {
     Tcl_Obj *abort_code;
 } interp_globals;
 
-/*
- *-----------------------------------------------------------------------------
- *
- * TclWeb_InitRequest --
- * Initializes the request structure.
- *
- *-----------------------------------------------------------------------------
- */
 
 int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg);
-
 void TclWeb_FreeRequest(TclWebRequest *req);
 
-/*
- *-----------------------------------------------------------------------------
- *
- * TclWeb_SendHeaders --
- * Sends HTTP headers.
- *
- * Results:
- * HTTP headers output.  Things like cookies may no longer be manipulated.
- *
- *-----------------------------------------------------------------------------
- */
-
 int TclWeb_SendHeaders(TclWebRequest *req);
-
 int TclWeb_SetHeaderType(char *header, TclWebRequest *req);
-
 int TclWeb_PrintHeaders(TclWebRequest *req);
-
 void TclWeb_OutputHeaderSet(char *header, char *val, TclWebRequest *req);
 const char *TclWeb_OutputHeaderGet(char *header, TclWebRequest *req);
-
-/*
- *-----------------------------------------------------------------------------
- *
- * TclWeb_HeaderAdd --
- * Adds an HTTP headers.
- *
- *-----------------------------------------------------------------------------
- */
-
 int TclWeb_HeaderAdd(char *header, char *val, TclWebRequest *req);
-
-/*
- *-----------------------------------------------------------------------------
- *
- * TclWeb_SetStatus --
- * Sets status number for reply.
- *
- *-----------------------------------------------------------------------------
- */
-
 int TclWeb_SetStatus(int status, TclWebRequest *req);
 
 int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source, TclWebRequest *req);
-
 int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source, TclWebRequest *req);
-
 int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source, TclWebRequest *req);
-
 int TclWeb_VarNumber(Tcl_Obj *result, int source, TclWebRequest *req);
-
 int TclWeb_GetVarNames(Tcl_Obj *result, int source, TclWebRequest *req);
-
 int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req);
-
-/*
- * -----------------------------------------------------------------------------
- *
- * TclWeb_GetRawPost --
- *
- *  Fetch the raw POST data from the request.
- *
- * Results:
- *  The data, or NULL if it's not a POST or there is no data.
- *
- * Side Effects:
- *  None.
- *
- *-----------------------------------------------------------------------------
- */
 
 char *TclWeb_GetRawPost(TclWebRequest *req, int *len);
 
