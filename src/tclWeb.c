@@ -1,12 +1,13 @@
 #include "tclWeb.h"
 #include "helputils.h"
-#include <fcgi_stdio.h>
 #include <ctype.h>
+#include <fcgi_stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define DEFAULT_HEADER_TYPE "text/html; charset=utf-8"
 
+#define DEFAULT_POST_CONTENT_TYPE "application/x-www-form-urlencoded"
 
 char HexToInt(char c) {
     if (c >= '0' && c <= '9')
@@ -142,18 +143,16 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     if (query_string == NULL || strlen(query_string) < 1) {
         req->info->query_string = NULL;
     } else {
-        char *parseString = NULL;
+        char *parseString = strdup(query_string);
 
         req->info->query_string =
             (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
         Tcl_InitHashTable(req->info->query_string, TCL_STRING_KEYS);
 
-        parseString = Tcl_Alloc(strlen(query_string) + 1);
-        strcpy(parseString, query_string);
-
-        ParseQueryString(interp, req->info->query_string, parseString);
-        if (parseString)
-            Tcl_Free(parseString);
+        if (parseString) {
+            ParseQueryString(interp, req->info->query_string, parseString);
+            free(parseString);
+        }
     }
 
     /*
@@ -186,20 +185,18 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
             if (content_type == NULL || strlen(content_type) < 1) {
                 req->info->post = NULL;
             } else {
-                if (strcmp(content_type, "application/x-www-form-urlencoded") ==
-                    0) {
-                    char *parseString = NULL;
+                if (strncmp(content_type, DEFAULT_POST_CONTENT_TYPE,
+                            strlen(DEFAULT_POST_CONTENT_TYPE)) == 0) {
+                    char *parseString = strdup(req->info->raw_post);
 
                     req->info->post =
                         (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
                     Tcl_InitHashTable(req->info->post, TCL_STRING_KEYS);
 
-                    parseString = Tcl_Alloc(req->info->raw_length + 1);
-                    strcpy(parseString, req->info->raw_post);
-
-                    ParseQueryString(interp, req->info->post, parseString);
-                    if (parseString)
-                        Tcl_Free(parseString);
+                    if (parseString) {
+                        ParseQueryString(interp, req->info->post, parseString);
+                        free(parseString);
+                    }
                 } else {
                     req->info->post = NULL;
                 }
