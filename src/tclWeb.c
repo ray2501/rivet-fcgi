@@ -52,8 +52,14 @@ void ParseQueryString(Tcl_Interp *interp, Tcl_HashTable *qs,
     char *token;
     char *outer_saveptr = NULL;
     char *inner_saveptr = NULL;
+    char *parseString = NULL;
 
-    token = strtok_r(query_string, outer_delimiters, &outer_saveptr);
+    if (query_string == NULL)
+        return;
+
+    parseString = strdup(query_string);
+
+    token = strtok_r(parseString, outer_delimiters, &outer_saveptr);
 
     while (token != NULL) {
         char *inner_token = strtok_r(token, inner_delimiters, &inner_saveptr);
@@ -95,6 +101,9 @@ void ParseQueryString(Tcl_Interp *interp, Tcl_HashTable *qs,
 
         token = strtok_r(NULL, outer_delimiters, &outer_saveptr);
     }
+
+    if (parseString)
+        free(parseString);
 }
 
 /*
@@ -143,16 +152,11 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     if (query_string == NULL || strlen(query_string) < 1) {
         req->info->query_string = NULL;
     } else {
-        char *parseString = strdup(query_string);
-
         req->info->query_string =
             (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
         Tcl_InitHashTable(req->info->query_string, TCL_STRING_KEYS);
 
-        if (parseString) {
-            ParseQueryString(interp, req->info->query_string, parseString);
-            free(parseString);
-        }
+        ParseQueryString(interp, req->info->query_string, query_string);
     }
 
     /*
@@ -187,16 +191,12 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
             } else {
                 if (strncmp(content_type, DEFAULT_POST_CONTENT_TYPE,
                             strlen(DEFAULT_POST_CONTENT_TYPE)) == 0) {
-                    char *parseString = strdup(req->info->raw_post);
-
                     req->info->post =
                         (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
                     Tcl_InitHashTable(req->info->post, TCL_STRING_KEYS);
 
-                    if (parseString) {
-                        ParseQueryString(interp, req->info->post, parseString);
-                        free(parseString);
-                    }
+                    ParseQueryString(interp, req->info->post,
+                                     req->info->raw_post);
                 } else {
                     req->info->post = NULL;
                 }
