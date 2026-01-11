@@ -320,9 +320,9 @@ int main(int argc, char *argv[]) {
         Tcl_DecrRefCount(request_init);
 
     myclean:
-        FCGI_Finish();
         Tcl_DeleteInterp(interp);
         Tcl_Release((ClientData)interp);
+        FCGI_Finish();
     }
 
 end:
