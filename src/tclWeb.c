@@ -1,110 +1,11 @@
 #include "tclWeb.h"
+#include "dataParser.h"
 #include "helputils.h"
-#include <ctype.h>
 #include <fcgi_stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define DEFAULT_HEADER_TYPE "text/html; charset=utf-8"
-
-#define DEFAULT_POST_CONTENT_TYPE "application/x-www-form-urlencoded"
-
-char HexToInt(char c) {
-    if (c >= '0' && c <= '9')
-        return c - '0';
-    if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
-    return 0;
-}
-
-char *DecodeUrlstring(const char *src) {
-    char *dst = malloc(strlen(src) + 1);
-    char *d = dst;
-
-    while (*src) {
-        if (*src == '%') {
-            if (isxdigit(*(src + 1)) && isxdigit(*(src + 2))) {
-                *d++ = HexToInt(*(src + 1)) * 16 + HexToInt(*(src + 2));
-                src += 3;
-            } else {
-                // Invalid encoding, copy the '%' literal
-                *d++ = *src++;
-            }
-        } else if (*src == '+') {
-            *d++ = ' ';
-            src++;
-        } else {
-            *d++ = *src++;
-        }
-    }
-
-    *d = '\0'; // Null-terminate the destination string
-    return dst;
-}
-
-void ParseQueryString(Tcl_Interp *interp, Tcl_HashTable *qs,
-                      char *query_string) {
-    const char outer_delimiters[] = "&";
-    const char inner_delimiters[] = "=";
-
-    char *token;
-    char *outer_saveptr = NULL;
-    char *inner_saveptr = NULL;
-    char *parseString = NULL;
-
-    if (query_string == NULL)
-        return;
-
-    parseString = strdup(query_string);
-
-    token = strtok_r(parseString, outer_delimiters, &outer_saveptr);
-
-    while (token != NULL) {
-        char *inner_token = strtok_r(token, inner_delimiters, &inner_saveptr);
-        Tcl_HashEntry *entry = NULL;
-        int isNew = 0;
-        Tcl_Obj *hashvalue = NULL;
-        char *key = NULL;
-        char *value = NULL;
-        char *empty = "";
-
-        if (inner_token) {
-            key = DecodeUrlstring(inner_token);
-            entry = Tcl_FindHashEntry(qs, key);
-            if (entry == NULL) {
-                entry = Tcl_CreateHashEntry(qs, key, &isNew);
-                hashvalue = Tcl_NewListObj(1, NULL);
-                Tcl_IncrRefCount(hashvalue);
-            } else {
-                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-            }
-
-            inner_token = strtok_r(NULL, inner_delimiters, &inner_saveptr);
-            if (inner_token) {
-                value = DecodeUrlstring(inner_token);
-
-                Tcl_ListObjAppendElement(interp, hashvalue,
-                                         Tcl_NewStringObj(value, -1));
-                Tcl_SetHashValue(entry, (ClientData)hashvalue);
-
-                free(value);
-            } else {
-                Tcl_ListObjAppendElement(interp, hashvalue,
-                                         Tcl_NewStringObj(empty, -1));
-                Tcl_SetHashValue(entry, (ClientData)hashvalue);
-            }
-
-            free(key);
-        }
-
-        token = strtok_r(NULL, outer_delimiters, &outer_saveptr);
-    }
-
-    if (parseString)
-        free(parseString);
-}
 
 /*
  * -----------------------------------------------------------------------------
@@ -126,6 +27,7 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     req->info->method = HTTP_GET;
     req->info->query_string = NULL;
     req->info->post = NULL;
+    req->info->upload = NULL;
     req->info->raw_length = 0;
     req->info->raw_post = NULL;
 
@@ -197,6 +99,24 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
 
                     ParseQueryString(interp, req->info->post,
                                      req->info->raw_post);
+                } else if (strncmp(content_type, MULTIPART_CONTENT_TYPE,
+                                   strlen(MULTIPART_CONTENT_TYPE)) == 0) {
+                    int len = 0;
+                    char *boundary = GetBoundary(content_type, &len);
+
+                    if (boundary) {
+                        req->info->post =
+                            (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
+                        Tcl_InitHashTable(req->info->post, TCL_STRING_KEYS);
+
+                        req->info->upload =
+                            (Tcl_HashTable *)Tcl_Alloc(sizeof(Tcl_HashTable));
+                        Tcl_InitHashTable(req->info->upload, TCL_STRING_KEYS);
+
+                        ParseMultiPart(interp, boundary, req->info->post,
+                                       req->info->upload, req->info->raw_post,
+                                       req->info->raw_length);
+                    }
                 } else {
                     req->info->post = NULL;
                 }
@@ -219,7 +139,7 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     req->status = 0;
 }
 
-void TclWeb_FreeRequest(TclWebRequest *req) {
+void TclWeb_FreeRequest(TclWebRequest *req, Tcl_Interp *interp) {
     if (req) {
         if (req->info) {
             if (req->info->query_string) {
@@ -261,6 +181,36 @@ void TclWeb_FreeRequest(TclWebRequest *req) {
 
                 Tcl_DeleteHashTable(req->info->post);
                 Tcl_Free((char *)req->info->post);
+            }
+
+            if (req->info->upload) {
+                Tcl_Obj *hashvalue = NULL;
+                Tcl_HashEntry *entry = NULL;
+                Tcl_HashSearch search;
+
+                for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+                     entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+                    hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                    if (hashvalue) {
+                        /*
+                         * Try to remove temp file
+                         */
+                        Tcl_Obj *tmpfile_obj = NULL;
+
+                        Tcl_DictObjGet(interp, hashvalue,
+                                       Tcl_NewStringObj("tmp_name", -1),
+                                       &tmpfile_obj);
+                        Tcl_FSDeleteFile(tmpfile_obj);
+
+                        Tcl_DecrRefCount(hashvalue);
+                        hashvalue = NULL;
+                    }
+
+                    Tcl_DeleteHashEntry(entry);
+                }
+
+                Tcl_DeleteHashTable(req->info->upload);
+                Tcl_Free((char *)req->info->upload);
             }
 
             if (req->info->raw_post)
@@ -626,7 +576,6 @@ int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source,
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
             char *hashkey = NULL;
-            char *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
             Tcl_HashSearch search;
 
@@ -634,7 +583,7 @@ int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source,
                  entry != NULL; entry = Tcl_NextHashEntry(&search)) {
 
                 hashkey = Tcl_GetHashKey(req->info->query_string, entry);
-                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                if (strcmp(hashkey, varname) == 0) {
                     Tcl_SetIntObj(result, 1);
                     return TCL_OK;
                 }
@@ -645,7 +594,6 @@ int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source,
     if (source == VAR_SRC_POST || source == VAR_SRC_ALL) {
         if (req->info->post) {
             char *hashkey = NULL;
-            char *hashvalue = NULL;
             Tcl_HashEntry *entry = NULL;
             Tcl_HashSearch search;
 
@@ -653,7 +601,7 @@ int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source,
                  entry != NULL; entry = Tcl_NextHashEntry(&search)) {
 
                 hashkey = Tcl_GetHashKey(req->info->post, entry);
-                if (strncmp(hashkey, varname, strlen(varname)) == 0) {
+                if (strcmp(hashkey, varname) == 0) {
                     Tcl_SetIntObj(result, 1);
                     return TCL_OK;
                 }
@@ -810,4 +758,338 @@ char *TclWeb_GetRawPost(TclWebRequest *req, int *len) {
     *len = req->info->raw_length;
 
     return req->info->raw_post;
+}
+
+int TclWeb_PrepareUpload(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                return TCL_OK;
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadChannel(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+        Tcl_Obj *result;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *name_obj = NULL;
+                    char *name_str;
+                    int namelength;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("tmp_name", -1), &name_obj);
+                    name_str = Tcl_GetStringFromObj(name_obj, &namelength);
+
+                    if (name_str && namelength > 0) {
+                        Tcl_Channel chan;
+
+                        chan =
+                            Tcl_OpenFileChannel(req->interp, name_str, "r", 0);
+                        if (chan == NULL) {
+                            Tcl_AddErrorInfo(
+                                req->interp,
+                                "Error opening channel to uploaded data");
+                            return TCL_ERROR;
+                        }
+
+                        if (Tcl_SetChannelOption(req->interp, chan,
+                                                 "-translation",
+                                                 "binary") == TCL_ERROR) {
+                            Tcl_AddErrorInfo(
+                                req->interp,
+                                "Error setting channel option -translation");
+                            return TCL_ERROR;
+                        }
+
+                        if (Tcl_SetChannelOption(req->interp, chan, "-encoding",
+                                                 "iso8859-1") == TCL_ERROR) {
+                            Tcl_AddErrorInfo(
+                                req->interp,
+                                "Error setting channel option -encoding");
+                            return TCL_ERROR;
+                        }
+
+                        Tcl_RegisterChannel(req->interp, chan);
+
+                        result = Tcl_NewObj();
+                        Tcl_SetStringObj(result, Tcl_GetChannelName(chan), -1);
+                        Tcl_SetObjResult(req->interp, result);
+                        return TCL_OK;
+                    }
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadTempname(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *tmp_obj = NULL;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("tmp_name", -1), &tmp_obj);
+
+                    Tcl_SetObjResult(req->interp, tmp_obj);
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadSave(char *varname, Tcl_Obj *filename, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *file_obj = NULL;
+                    int result;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("tmp_name", -1), &file_obj);
+                    result = Tcl_FSCopyFile(file_obj, filename);
+
+                    if (result != TCL_OK) {
+                        Tcl_Obj *err = Tcl_ObjPrintf("Save failed");
+                        Tcl_SetObjResult(req->interp, err);
+                        return TCL_ERROR;
+                    }
+
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadData(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+        Tcl_Obj *result;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *name_obj = NULL;
+                    Tcl_Obj *size_obj = NULL;
+                    char *name_str;
+                    int namelength;
+                    int filesize;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("tmp_name", -1), &name_obj);
+                    name_str = Tcl_GetStringFromObj(name_obj, &namelength);
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("size", -1), &size_obj);
+                    Tcl_GetIntFromObj(req->interp, size_obj, &filesize);
+
+                    if (name_str && namelength > 0) {
+                        Tcl_Channel chan;
+
+                        chan =
+                            Tcl_OpenFileChannel(req->interp, name_str, "r", 0);
+                        if (chan == NULL) {
+                            Tcl_AddErrorInfo(
+                                req->interp,
+                                "Error opening channel to uploaded data");
+                            return TCL_ERROR;
+                        }
+
+                        if (Tcl_SetChannelOption(req->interp, chan,
+                                                 "-translation",
+                                                 "binary") == TCL_ERROR) {
+                            Tcl_AddErrorInfo(
+                                req->interp,
+                                "Error setting channel option -translation");
+                            return TCL_ERROR;
+                        }
+
+                        if (Tcl_SetChannelOption(req->interp, chan, "-encoding",
+                                                 "iso8859-1") == TCL_ERROR) {
+                            Tcl_AddErrorInfo(
+                                req->interp,
+                                "Error setting channel option -encoding");
+                            return TCL_ERROR;
+                        }
+
+                        result = Tcl_NewObj();
+                        Tcl_ReadChars(chan, result, filesize, 0);
+                        if (Tcl_Close(req->interp, chan) == TCL_ERROR) {
+                            return TCL_ERROR;
+                        }
+
+                        Tcl_SetObjResult(req->interp, result);
+                        return TCL_OK;
+                    }
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadSize(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *size_obj = NULL;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("size", -1), &size_obj);
+
+                    Tcl_SetObjResult(req->interp, size_obj);
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadType(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *type_obj = NULL;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("type", -1), &type_obj);
+
+                    Tcl_SetObjResult(req->interp, type_obj);
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadFilename(char *varname, TclWebRequest *req) {
+    if (req->info->upload) {
+        char *hashkey = NULL;
+        Tcl_Obj *hashvalue = NULL;
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            if (strcmp(hashkey, varname) == 0) {
+                hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
+                if (hashvalue) {
+                    Tcl_Obj *file_obj = NULL;
+
+                    Tcl_DictObjGet(req->interp, hashvalue,
+                                   Tcl_NewStringObj("name", -1), &file_obj);
+
+                    Tcl_SetObjResult(req->interp, file_obj);
+                    return TCL_OK;
+                }
+            }
+        }
+    }
+
+    return TCL_ERROR;
+}
+
+int TclWeb_UploadNames(TclWebRequest *req) {
+    if (req->info->upload) {
+        Tcl_Obj *result = Tcl_NewObj();
+        Tcl_HashEntry *entry = NULL;
+        Tcl_HashSearch search;
+        char *hashkey = NULL;
+
+        for (entry = Tcl_FirstHashEntry(req->info->upload, &search);
+             entry != NULL; entry = Tcl_NextHashEntry(&search)) {
+            hashkey = Tcl_GetHashKey(req->info->upload, entry);
+            Tcl_ListObjAppendElement(req->interp, result,
+                                     Tcl_NewStringObj(hashkey, -1));
+        }
+
+        Tcl_SetObjResult(req->interp, result);
+        return TCL_OK;
+    }
+
+    return TCL_ERROR;
 }

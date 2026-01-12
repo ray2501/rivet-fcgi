@@ -469,6 +469,172 @@ TCL_CMD_HEADER ( Rivet_RawPost )
     return TCL_OK;
 }
 
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * Rivet_Upload --
+ *
+ *      Deals with file uploads (multipart/form-data):
+ *
+ * Results:
+ *      A standard Tcl result.
+ *
+ * Side Effects:
+ *      Has the potential to create files on the file system, or work
+ *      with large amounts of data.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+TCL_CMD_HEADER( Rivet_Upload )
+{
+    char*   varname = NULL;
+    int     subcommandindex;
+    interp_globals* globals = Tcl_GetAssocData(interp, "rivet", NULL);
+
+    /* ::rivet::upload subcommands must register
+     *
+     * - subcommand definition
+     * - subcommand integer progressive index
+     * - subcommand required (minimum) number of arguments
+     *
+     * +----------------------------------------+-------+
+     * |         argv[1]    argv[2]   argv[3]   | argc  |
+     * +----------------------------------------+-------+
+     * |  upload channel   uploadname           |   3   |
+     * |  upload save      uploadname filename  |   4   |
+     * |  upload data      uploadname           |   3   |
+     * |  upload exists    uploadname           |   3   |
+     * |  upload size      uploadname           |   3   |
+     * |  upload type      uploadname           |   3   |
+     * |  upload filename  uploadname           |   3   |
+     * |  upload tempname  uploadname           |   3   |
+     * |  upload names                          |   2   |
+     * +----------------------------------------+-------+
+     *
+     * a subcommand first optional argument must be the name
+     * of an upload
+     */
+
+    static const char *SubCommand[] = {
+        "channel",
+        "save",
+        "data",
+        "exists",
+        "size",
+        "type",
+        "filename",
+        "tempname",
+        "names",
+        NULL
+    };
+
+    enum subcommand {
+        CHANNEL,
+        SAVE,
+        DATA,
+        EXISTS,
+        SIZE,
+        TYPE,
+        FILENAME,
+        TEMPNAME,
+        NAMES
+    };
+
+    static const int cmds_objc[] = { 3,4,3,3,3,3,3,3,2 };
+    int expected_objc;
+
+    if (Tcl_GetIndexFromObj(interp, objv[1], SubCommand,
+                        "channel|save|data|exists|size|type|filename|tempname|names",
+                        0, &subcommandindex) == TCL_ERROR) {
+        return TCL_ERROR;
+    }
+
+    expected_objc = cmds_objc[subcommandindex];
+
+    if (objc != expected_objc) {
+        Tcl_Obj* infoobj = Tcl_NewStringObj("Wrong argument numbers: ",-1);
+
+        Tcl_IncrRefCount(infoobj);
+        Tcl_AppendObjToObj(infoobj,Tcl_NewIntObj(expected_objc));
+        Tcl_AppendStringsToObj(infoobj," arguments expected");
+        Tcl_AppendObjToErrorInfo(interp, infoobj);
+        Tcl_DecrRefCount(infoobj);
+
+        if (subcommandindex == SAVE) {
+            Tcl_WrongNumArgs(interp, 2, objv, "uploadname filename");
+        } else {
+            Tcl_WrongNumArgs(interp, objc, objv, "uploadname");
+        }
+        return TCL_ERROR;
+    }
+
+    /* We check whether an upload with a given name exists */
+
+    if (objc >= 3) {
+        int tcl_status;
+        varname = Tcl_GetString(objv[2]);
+
+        /* TclWeb_PrepareUpload calls ApacheUpload_find and returns
+         * TCL_OK if the named upload exists in the current request */
+        tcl_status = TclWeb_PrepareUpload(varname, globals->req);
+
+        if (subcommandindex == EXISTS) {
+            Tcl_Obj* result = NULL;
+            int upload_prepared = 0;
+
+            if (tcl_status == TCL_OK) upload_prepared = 1;
+
+            result = Tcl_NewObj();
+            Tcl_SetIntObj(result,upload_prepared);
+            Tcl_SetObjResult(interp, result);
+            return TCL_OK;
+
+        }
+
+        if (tcl_status != TCL_OK)
+        {
+            Tcl_AddErrorInfo(interp, "Unable to find the upload named '");
+            Tcl_AppendObjToErrorInfo(interp,Tcl_NewStringObj(varname,-1));
+            Tcl_AppendObjToErrorInfo(interp,Tcl_NewStringObj("'",-1));
+            return TCL_ERROR;
+        }
+    }
+
+    /* CHANNEL  : get the upload channel name
+     * SAVE     : save data to a specified filename
+     * DATA     : get the uploaded data into a Tcl variable
+     * SIZE     : uploaded data size
+     * TYPE     : upload mimetype
+     * FILENAME : upload original filename
+     * TEMPNAME : temporary file where the upload is taking place
+     * NAMES    : list of uploads
+     */
+
+    switch ((enum subcommand)subcommandindex)
+    {
+        case CHANNEL:
+            return TclWeb_UploadChannel(varname, globals->req);
+        case SAVE:
+            return TclWeb_UploadSave(varname, objv[3], globals->req);
+        case DATA:
+            return TclWeb_UploadData(varname, globals->req);
+        case SIZE:
+            return TclWeb_UploadSize(varname, globals->req);
+        case TYPE:
+            return TclWeb_UploadType(varname, globals->req);
+        case FILENAME:
+            return TclWeb_UploadFilename(varname, globals->req);
+        case TEMPNAME:
+            return TclWeb_UploadTempname(varname, globals->req);
+        case NAMES:
+            return TclWeb_UploadNames(globals->req);
+        default:
+            Tcl_WrongNumArgs(interp, 1, objv,"Rivet internal error: inconsistent argument");
+    }
+
+    return TCL_ERROR;
+}
 
 /*
  *-----------------------------------------------------------------------------
@@ -850,6 +1016,7 @@ Rivet_InitCore(Tcl_Interp *interp)
     RIVET_OBJ_CMD ("var_qs",Rivet_Var,NULL);
     RIVET_OBJ_CMD ("var_post",Rivet_Var,NULL);
     RIVET_OBJ_CMD ("raw_post",Rivet_RawPost,NULL);
+    RIVET_OBJ_CMD ("upload",Rivet_Upload,NULL);
     RIVET_OBJ_CMD ("include",Rivet_Include,NULL);
     RIVET_OBJ_CMD ("parse",Rivet_Parse,NULL);
     RIVET_OBJ_CMD ("no_body",Rivet_NoBody,NULL);
@@ -873,6 +1040,7 @@ Rivet_InitCore(Tcl_Interp *interp)
         RIVET_EXPORT_CMD(interp,rivet_ns,"var_qs");
         RIVET_EXPORT_CMD(interp,rivet_ns,"var_post");
         RIVET_EXPORT_CMD(interp,rivet_ns,"raw_post");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"update");
         RIVET_EXPORT_CMD(interp,rivet_ns,"include");
         RIVET_EXPORT_CMD(interp,rivet_ns,"parse");
         RIVET_EXPORT_CMD(interp,rivet_ns,"no_body");

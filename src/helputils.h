@@ -3,6 +3,15 @@
 
 #include <tcl.h>
 
+/*
+ * Only declare, I do not really test on Windows platform
+ */
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #ifndef F_OK
 #    define F_OK 00
 #endif

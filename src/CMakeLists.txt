@@ -2,8 +2,8 @@
 set (rivetparser_sources parser/rivetParser.c parser/parserPkgInit.c)
 set (rivetlib_sources librivet/rivetList.c librivet/rivetCrypt.c
      librivet/rivetWWW.c librivet/rivetPkgInit.c)
-set (SRCS rivet-fcgi.c channel.c errChan.c helputils.c parser/rivetParser.c
-     rivetCore.c tclWeb.c)
+set (SRCS rivet-fcgi.c channel.c errChan.c helputils.c dataParser.c
+     parser/rivetParser.c rivetCore.c tclWeb.c)
 
 
 #  Generate config.h
@@ -21,6 +21,12 @@ configure_file("${RIVET_LIB_DIR}/init.tcl.in"
 add_executable(rivet-fcgi ${SRCS})
 add_library(rivetparser  ${rivetparser_sources})
 add_library(rivetlib  ${rivetlib_sources})
+
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(rivet-fcgi PRIVATE
+        -Wunused-variable
+    )
+endif()
 
 if(TCL_THREADS)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTCL_THREADS")

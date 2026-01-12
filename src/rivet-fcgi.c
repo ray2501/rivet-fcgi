@@ -21,21 +21,12 @@ void FreeGlobalsData(ClientData clientData, Tcl_Interp *interp) {
             globals->scriptfile = NULL;
         }
 
-        TclWeb_FreeRequest(globals->req);
+        TclWeb_FreeRequest(globals->req, interp);
         globals->req = NULL;
 
         Tcl_Free((char *)globals);
     }
 }
-
-/*
- * Only declare, I do not really test on Windows platform
- */
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <unistd.h>
-#endif
 
 int main(int argc, char *argv[]) {
     int ret = EXIT_SUCCESS;

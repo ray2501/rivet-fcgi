@@ -21,6 +21,7 @@ typedef struct RequestInfo {
     enum http_method method;
     Tcl_HashTable *query_string;
     Tcl_HashTable *post;
+    Tcl_HashTable *upload;
     int raw_length;
     char *raw_post;
 } RequestInfo;
@@ -43,9 +44,8 @@ typedef struct _interp_globals {
     Tcl_Obj *abort_code;
 } interp_globals;
 
-
 int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg);
-void TclWeb_FreeRequest(TclWebRequest *req);
+void TclWeb_FreeRequest(TclWebRequest *req, Tcl_Interp *interp);
 
 int TclWeb_SendHeaders(TclWebRequest *req);
 int TclWeb_SetHeaderType(char *header, TclWebRequest *req);
@@ -55,13 +55,26 @@ const char *TclWeb_OutputHeaderGet(char *header, TclWebRequest *req);
 int TclWeb_HeaderAdd(char *header, char *val, TclWebRequest *req);
 int TclWeb_SetStatus(int status, TclWebRequest *req);
 
-int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source, TclWebRequest *req);
-int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source, TclWebRequest *req);
-int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source, TclWebRequest *req);
+int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
+                  TclWebRequest *req);
+int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
+                        TclWebRequest *req);
+int TclWeb_VarExists(Tcl_Obj *result, char *varname, int source,
+                     TclWebRequest *req);
 int TclWeb_VarNumber(Tcl_Obj *result, int source, TclWebRequest *req);
 int TclWeb_GetVarNames(Tcl_Obj *result, int source, TclWebRequest *req);
 int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req);
 
 char *TclWeb_GetRawPost(TclWebRequest *req, int *len);
+
+int TclWeb_PrepareUpload(char *varname, TclWebRequest *req);
+int TclWeb_UploadChannel(char *varname, TclWebRequest *req);
+int TclWeb_UploadTempname(char *varname, TclWebRequest *req);
+int TclWeb_UploadSave(char *varname, Tcl_Obj *filename, TclWebRequest *req);
+int TclWeb_UploadData(char *varname, TclWebRequest *req);
+int TclWeb_UploadSize(char *varname, TclWebRequest *req);
+int TclWeb_UploadType(char *varname, TclWebRequest *req);
+int TclWeb_UploadFilename(char *varname, TclWebRequest *req);
+int TclWeb_UploadNames(TclWebRequest *req);
 
 #endif
