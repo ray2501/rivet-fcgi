@@ -1040,7 +1040,7 @@ Rivet_InitCore(Tcl_Interp *interp)
         RIVET_EXPORT_CMD(interp,rivet_ns,"var_qs");
         RIVET_EXPORT_CMD(interp,rivet_ns,"var_post");
         RIVET_EXPORT_CMD(interp,rivet_ns,"raw_post");
-        RIVET_EXPORT_CMD(interp,rivet_ns,"update");
+        RIVET_EXPORT_CMD(interp,rivet_ns,"upload");
         RIVET_EXPORT_CMD(interp,rivet_ns,"include");
         RIVET_EXPORT_CMD(interp,rivet_ns,"parse");
         RIVET_EXPORT_CMD(interp,rivet_ns,"no_body");
