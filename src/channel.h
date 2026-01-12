@@ -41,7 +41,8 @@ Tcl_ChannelType TclFCGIChan = {
     NULL,                  /* flush proc - can be null */
     NULL,                  /* handler proc - can be null */
     NULL,                  /* wide seek proc - can be null if seekproc is*/
-    NULL                   /* thread action proc - can be null */
+    NULL,                  /* thread action proc - can be null */
+    NULL                   /* truncate proc - can be null */
 };
 
 #endif

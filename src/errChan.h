@@ -41,7 +41,8 @@ Tcl_ChannelType TclFCGIErrChan = {
     NULL,                  /* flush ErrProc - can be null */
     NULL,                  /* handler ErrProc - can be null */
     NULL,                  /* wide seek ErrProc - can be null if seekErrProc is*/
-    NULL                   /* thread action ErrProc - can be null */
+    NULL,                  /* thread action ErrProc - can be null */
+    NULL                   /* truncate proc - can be null */
 };
 
 #endif
