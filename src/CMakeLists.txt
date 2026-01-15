@@ -57,6 +57,7 @@ install(DIRECTORY
         ${RIVET_LIB_DIR}/packages/entities
         ${RIVET_LIB_DIR}/packages/form
         ${RIVET_LIB_DIR}/packages/formbroker
+        ${RIVET_LIB_DIR}/packages/session
         ${RIVET_LIB_DIR}/packages/tclrivet
         DESTINATION ${RIVETLIB_DESTDIR}/packages)
 
