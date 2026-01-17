@@ -96,7 +96,7 @@ Rivetlib_Init( Tcl_Interp *interp )
     Rivet_InitCrypt(interp);
     Rivet_InitWWW  (interp);
 
-    return Tcl_PkgProvide( interp, RIVETLIB_TCL_PACKAGE, "3.2.2" );
+    return Tcl_PkgProvide( interp, RIVETLIB_TCL_PACKAGE, RIVET_INIT_VERSION );
 }
 
 /*-----------------------------------------------------------------------------

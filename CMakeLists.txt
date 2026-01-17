@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 set(VERSION "0.2.3")
 set(RIVETLIB_PACKAGE "rivetlib")
 set(RIVETLIB_PACKAGE_VERSION "3.2")
-set(INIT_VERSION "3.2.3")
+set(INIT_VERSION "3.2.8")
 set(RIVET_INIT_VERSION ${INIT_VERSION})
 
 project (rivet-fcgi VERSION ${VERSION} LANGUAGES C)
