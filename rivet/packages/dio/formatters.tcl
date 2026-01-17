@@ -198,6 +198,10 @@ namespace eval ::DIO::formatters {
         }
     }
 
+    ::itcl::class Sqlite {
+        inherit Sqlite3
+    }
+
     ::itcl::class Postgres {
         inherit RootFormatter
 
@@ -245,6 +249,10 @@ namespace eval ::DIO::formatters {
                 }
             }
         }
+    }
+
+    ::itcl::class Postgresql {
+        inherit Postgres
     }
 
     ::itcl::class Oracle {
