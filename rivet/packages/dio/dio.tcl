@@ -62,7 +62,12 @@ proc handle {interface args} {
 
         set dio_o [uplevel \#0 ::DIO::$interface $obj $args]
     } else {
-        set dio_o [uplevel \#0 ::DIO::$interface $obj $tdbc_driver {*}$args]
+        if {[string compare $tdbc_driver "Oracle"] == 0 ||
+            [string compare $tdbc_driver "Odbc"] == 0} {
+            set dio_o [uplevel \#0 ::DIO::$interface $obj $tdbc_driver $args]
+        } else {
+            set dio_o [uplevel \#0 ::DIO::$interface $obj $tdbc_driver {*}$args]
+        }
     }
 
     # the Tdbc driver may rename the drive because we created
@@ -692,6 +697,7 @@ proc handle {interface args} {
     method pass {{string ""}} { return [configure_variable pass $string] }
     method host {{string ""}} { return [configure_variable host $string] }
     method port {{string ""}} { return [configure_variable port $string] }
+    method connstr {{string ""}} { return [configure_variable connstr $string] }
 
     public variable special_fields_formatter ""
 
@@ -706,6 +712,7 @@ proc handle {interface args} {
     public variable pass        ""
     public variable host        ""
     public variable port        ""
+    public variable connstr     ""
 
     protected method handle_client_arguments {cargs} { }
 

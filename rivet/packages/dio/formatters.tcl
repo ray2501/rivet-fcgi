@@ -74,6 +74,10 @@ namespace eval ::DIO::formatters {
 
     } ; ## ::itcl::class RootFormatter
 
+    ::itcl::class Odbc {
+        inherit RootFormatter
+    }
+
     ::itcl::class Mysql {
         inherit RootFormatter
 

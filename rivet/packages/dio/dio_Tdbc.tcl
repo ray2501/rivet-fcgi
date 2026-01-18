@@ -46,30 +46,31 @@ namespace eval DIO {
             set connector_name [::string tolower $interface_name]
             switch $connector_name {
                 "oracle" {
-                    set connector_name "odbc"
+                    set connector_name "oracle"
+                    set interface "odbc"
                 } 
-                "postgresql" {
+                "postgres" - "postgresql" {
                     set connector_name "postgres"
+                    set interface "postgres"
                 }
-                "sqlite" {
+                "sqlite3" - "sqlite" {
                     set connector_name "sqlite3"
+                    set interface "sqlite3"
                 }
-                "mariadb" {
+                "mysql" - "mariadb" {
                     set connector_name "mysql"
+                    set interface "mysql"
                 }
-                "sqlite3" -
-                "odbc" -
-                "postgres" -
-                "mysql" {
-                    # OK
+                "odbc" {
+                    set connector_name "odbc"
+                    set interface "odbc"
                 }
                 default {
                     return -code error -errorcode invalid_tdbc_driver "Invalid TDBC driver '$connector_name'"
                 }
             }
 
-            set interface $connector_name
-            $this set_field_formatter ::DIO::formatters::[::string totitle $interface]
+            $this set_field_formatter ::DIO::formatters::[::string totitle $connector_name]
             set tdbc_connector "tdbc::${interface}"
 
             uplevel #0 package require ${tdbc_connector}
@@ -96,6 +97,11 @@ namespace eval DIO {
             if {$pass != ""} { lappend connector_cmd -password  $pass }
             if {$port != ""} { lappend connector_cmd -port      $port }
             if {$host != ""} { lappend connector_cmd -host      $host }
+            if {$connstr != ""} {
+                if {$interface == "odbc"} {
+                    lappend connector_cmd $connstr
+                }
+            }
 
             if {$clientargs != ""} { lappend connector_cmd {*}$clientargs }
 
