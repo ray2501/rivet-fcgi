@@ -52,3 +52,9 @@ set(INCLUDE_DIRS_PRIVATE
 )
 
 add_subdirectory(src)
+
+enable_testing()
+add_test(
+    NAME rivet_test
+    COMMAND ${TCL_TCLSH} ${PROJECT_SOURCE_DIR}/tests/all.tcl
+)
