@@ -1,0 +1,4 @@
+<?
+puts "Upload file [::rivet::upload filename MyUpload] \
+	([::rivet::upload size MyUpload] bytes) to server"
+?>
