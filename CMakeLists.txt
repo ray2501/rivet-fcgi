@@ -9,9 +9,11 @@ set(RIVET_INIT_VERSION ${INIT_VERSION})
 project (rivet-fcgi VERSION ${VERSION} LANGUAGES C)
 
 option(TCL_THREADS "build with threads" ON)
-option(BUILD_SHARED_LIBS          "build and link with shared libraries" ON)
+option(BUILD_SHARED_LIBS "build and link with shared libraries" ON)
 
-set (CMAKE_INSTALL_PREFIX /usr)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set (CMAKE_INSTALL_PREFIX /usr)
+endif()
 
 set(CPACK_SET_DESTDIR ON)
 set(INSTALL_LIB_DIR lib64 CACHE PATH "Installation directory for libraries")
@@ -22,7 +24,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(NOT DEFINED RIVETLIB_DESTDIR)
-  set(RIVETLIB_DESTDIR "${INSTALL_LIB_DIR}/tcl/rivetfcgi${VERSION}")
+  set(RIVETLIB_DESTDIR "${INSTALL_LIB_DIR}/rivetfcgi${VERSION}")
 endif(NOT DEFINED RIVETLIB_DESTDIR)
 
 find_package(ECM 1.0.0 REQUIRED)
