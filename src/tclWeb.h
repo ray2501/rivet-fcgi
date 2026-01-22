@@ -22,7 +22,7 @@ typedef struct RequestInfo {
     Tcl_HashTable *query_string;
     Tcl_HashTable *post;
     Tcl_HashTable *upload;
-    int raw_length;
+    size_t raw_length;
     char *raw_post;
 } RequestInfo;
 

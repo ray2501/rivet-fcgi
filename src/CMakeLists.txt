@@ -24,7 +24,7 @@ add_library(rivetlib  ${rivetlib_sources})
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_compile_options(rivet-fcgi PRIVATE
-        -Wunused-variable
+        -Wall -Wextra -Wno-unused-parameter
     )
 endif()
 

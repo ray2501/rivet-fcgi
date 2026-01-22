@@ -137,6 +137,7 @@ int TclWeb_InitRequest(TclWebRequest *req, Tcl_Interp *interp, void *arg) {
     }
 
     req->status = 0;
+    return TCL_OK;
 }
 
 void TclWeb_FreeRequest(TclWebRequest *req, Tcl_Interp *interp) {
@@ -439,9 +440,9 @@ int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
             entry = Tcl_FindHashEntry(req->info->query_string, varname);
             if (entry) {
                 Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-                int listObjc;
+                Tcl_Size listObjc;
                 Tcl_Obj **listObjv;
-                int i;
+                Tcl_Size i;
 
                 if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
                                            &listObjv) != TCL_OK) {
@@ -473,9 +474,9 @@ int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
             entry = Tcl_FindHashEntry(req->info->post, varname);
             if (entry) {
                 Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-                int listObjc;
+                Tcl_Size listObjc;
                 Tcl_Obj **listObjv;
-                int i;
+                Tcl_Size i;
 
                 if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
                                            &listObjv) != TCL_OK) {
@@ -510,7 +511,7 @@ int TclWeb_GetVar(Tcl_Obj *result, char *varname, int source,
 
 int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
                         TclWebRequest *req) {
-    int length = 0;
+    Tcl_Size length = 0;
 
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
@@ -518,9 +519,9 @@ int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
             entry = Tcl_FindHashEntry(req->info->query_string, varname);
             if (entry) {
                 Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-                int listObjc;
+                Tcl_Size listObjc;
                 Tcl_Obj **listObjv;
-                int i;
+                Tcl_Size i;
 
                 if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
                                            &listObjv) != TCL_OK) {
@@ -543,9 +544,9 @@ int TclWeb_GetVarAsList(Tcl_Obj *result, char *varname, int source,
             entry = Tcl_FindHashEntry(req->info->post, varname);
             if (entry) {
                 Tcl_Obj *hashvalue = (Tcl_Obj *)Tcl_GetHashValue(entry);
-                int listObjc;
+                Tcl_Size listObjc;
                 Tcl_Obj **listObjv;
-                int i;
+                Tcl_Size i;
 
                 if (Tcl_ListObjGetElements(req->interp, hashvalue, &listObjc,
                                            &listObjv) != TCL_OK) {
@@ -646,7 +647,7 @@ int TclWeb_VarNumber(Tcl_Obj *result, int source, TclWebRequest *req) {
 }
 
 int TclWeb_GetVarNames(Tcl_Obj *result, int source, TclWebRequest *req) {
-    int length = 0;
+    Tcl_Size length = 0;
 
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
@@ -689,7 +690,7 @@ int TclWeb_GetVarNames(Tcl_Obj *result, int source, TclWebRequest *req) {
 }
 
 int TclWeb_GetAllVars(Tcl_Obj *result, int source, TclWebRequest *req) {
-    int length = 0;
+    Tcl_Size length = 0;
 
     if (source == VAR_SRC_QUERYSTRING || source == VAR_SRC_ALL) {
         if (req->info->query_string) {
@@ -796,7 +797,7 @@ int TclWeb_UploadChannel(char *varname, TclWebRequest *req) {
                 if (hashvalue) {
                     Tcl_Obj *name_obj = NULL;
                     char *name_str;
-                    int namelength;
+                    Tcl_Size namelength;
 
                     Tcl_DictObjGet(req->interp, hashvalue,
                                    Tcl_NewStringObj("tmp_name", -1), &name_obj);
@@ -929,7 +930,7 @@ int TclWeb_UploadData(char *varname, TclWebRequest *req) {
                     Tcl_Obj *name_obj = NULL;
                     Tcl_Obj *size_obj = NULL;
                     char *name_str;
-                    int namelength;
+                    Tcl_Size namelength;
                     int filesize;
 
                     Tcl_DictObjGet(req->interp, hashvalue,

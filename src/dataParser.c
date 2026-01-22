@@ -334,7 +334,8 @@ void MultiPartHeaders(Tcl_Interp *interp, char **multipart, Tcl_Obj *headList) {
                     if (key)
                         free(key);
                 } else {
-                    int listLength = 0, len_res = TCL_OK;
+                    Tcl_Size listLength = 0;
+                    int len_res = TCL_OK;
                     len_res = Tcl_ListObjLength(interp, headList, &listLength);
 
                     if (len_res == TCL_OK) {
@@ -405,13 +406,14 @@ void ParseMultiPart(Tcl_Interp *interp, char *boundary, Tcl_HashTable *qs,
          * Get data from header
          */
 
-        int list_len = 0, result = TCL_OK;
+        Tcl_Size list_len = 0;
+        int result = TCL_OK;
         result = Tcl_ListObjLength(interp, headList, &list_len);
         if (result == TCL_OK) {
             if (list_len > 0 && list_len % 2 == 0) {
                 for (int index = 0; index < list_len; index += 2) {
                     Tcl_Obj *key_obj = NULL;
-                    int key_len = 0;
+                    Tcl_Size key_len = 0;
                     char *keyString = NULL;
 
                     Tcl_ListObjIndex(interp, headList, index, &key_obj);
@@ -419,7 +421,7 @@ void ParseMultiPart(Tcl_Interp *interp, char *boundary, Tcl_HashTable *qs,
 
                     if (strcmp("Content-Disposition", keyString) == 0) {
                         Tcl_Obj *value_obj = NULL;
-                        int value_len = 0;
+                        Tcl_Size value_len = 0;
                         char *cd = NULL;
                         char *pair = NULL;
 
@@ -454,7 +456,7 @@ void ParseMultiPart(Tcl_Interp *interp, char *boundary, Tcl_HashTable *qs,
                         }
                     } else if (strcmp("Content-Type", keyString) == 0) {
                         Tcl_Obj *value_obj = NULL;
-                        int value_len = 0;
+                        Tcl_Size value_len = 0;
                         char *cd = NULL;
 
                         Tcl_ListObjIndex(interp, headList, index + 1,

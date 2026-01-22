@@ -96,7 +96,7 @@ TCL_CMD_HEADER( Rivet_Headers )
             return TCL_ERROR;
         }
 
-        value = Tcl_GetStringFromObj (objv[2], (int *)NULL);
+        value = Tcl_GetStringFromObj (objv[2], (Tcl_Size *)NULL);
         entry = Tcl_FindHashEntry(globals->req->headers, "Location");
         if (entry == NULL) {
             entry = Tcl_CreateHashEntry(globals->req->headers, "Location", &isNew);

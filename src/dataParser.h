@@ -2,6 +2,7 @@
 #define DATA_PARSER_H 1
 
 #include "helputils.h"
+#include "rivet.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
