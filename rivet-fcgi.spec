@@ -2,7 +2,7 @@
 
 Name:          rivet-fcgi
 Summary:       Tcl interpreter and Rivet tempalte parser for FastCGI
-Version:       0.2.3
+Version:       0.3.0
 Release:       2
 License:       Apache-2.0
 Group:         Productivity/Networking/Web/Servers

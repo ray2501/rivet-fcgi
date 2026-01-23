@@ -46,7 +46,7 @@ Users can use `CMAKE_INSTALL_PREFIX`, `INSTALL_LIB_DIR`,
 For example:
 
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DINSTALL_LIB_DIR=lib64 \
-    -DRIVETLIB_DESTDIR=lib64/tcl/rivetfcgi0.2.3 ..
+    -DRIVETLIB_DESTDIR=lib64/tcl/rivetfcgi0.3.0 ..
 
 
 # Documentation
