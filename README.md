@@ -40,6 +40,20 @@ Below is an example:
     cmake ..
     cmake --build .
 
+Users can use `CMAKE_INSTALL_PREFIX`, `INSTALL_LIB_DIR`,
+`INSTALL_BIN_DIR` and `RIVETLIB_DESTDIR` to specify installation directory.
+
+For example:
+
+    cmake -DCMAKE_INSTALL_PREFIX=/usr -DINSTALL_LIB_DIR=lib64 \
+    -DRIVETLIB_DESTDIR=lib64/tcl/rivetfcgi0.2.3 ..
+
+
+# Documentation
+
+I use Rivet's [manuals](https://tcl.apache.org/rivet/html/manuals.html)
+as my reference.
+
 
 # Notice
 

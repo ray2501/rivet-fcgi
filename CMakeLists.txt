@@ -12,11 +12,11 @@ option(TCL_THREADS "build with threads" ON)
 option(BUILD_SHARED_LIBS "build and link with shared libraries" ON)
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set (CMAKE_INSTALL_PREFIX /usr)
+  set (CMAKE_INSTALL_PREFIX /usr/local)
 endif()
 
 set(CPACK_SET_DESTDIR ON)
-set(INSTALL_LIB_DIR lib64 CACHE PATH "Installation directory for libraries")
+set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
 set(INSTALL_BIN_DIR bin CACHE PATH "Installation directory for executables")
 
 if(NOT CMAKE_BUILD_TYPE)
