@@ -74,6 +74,16 @@ to implement its function.
 * session
 * tclrivet
 
+For DIO package:
+
+DIO 1.1 supported databases -
+* Mysql based on Tcl package Mysqltcl
+* Oracle based on Tcl package Oratcl
+* Postgresql based on Tcl package Pgtcl
+* Sqlite based on Tcl package sqlite3
+
+For DIO 1.2 I just add TDBC interface driver.
+
 For session package:  
 The session code by default requires a DIO handle called DIO.
 
