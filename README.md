@@ -10,10 +10,13 @@ If you want to write FastCGI application by using [Tcl](https://www.tcl.tk/),
 there are several FastCGI for Tcl packages.
 You can check [FastCGI](https://wiki.tcl-lang.org/page/FastCGI).
 
-This is a research and prototype project.
-The idea is to embed a Tcl interpreter and
-[Rivet](https://tcl.apache.org/rivet/) tempalte parser in
-a FastCGI application.
+This is a research project. The idea is to embed a Tcl interpreter
+and [Rivet](https://tcl.apache.org/rivet/) tempalte parser in a
+FastCGI application.
+
+A FastCGI application also can be run as a CGI program by using the FastCGI
+developer's library, which includes a compatibility feature that detects the
+execution environment and adapts its behavior accordingly.
 
 The bulk of this code is from a part of the
 [Rivet](https://tcl.apache.org/rivet/) project.

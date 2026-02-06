@@ -82,6 +82,10 @@ DIO 1.1 supported databases -
 * Postgresql based on Tcl package Pgtcl
 * Sqlite based on Tcl package sqlite3
 
+If you want to use DIO 1.1:
+
+	package require -exact DIO 1.1
+
 For DIO 1.2 I just add TDBC interface driver.
 
 For session package:  
