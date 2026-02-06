@@ -16,9 +16,9 @@ Requires:      tcl >= 8.6.1
 BuildRoot:     %{buildroot}
 
 %description
-This is a research and prototype project.
-The idea is to embed a Tcl interpreter and
-Rivet tempalte parser in a FastCGI application.
+This is a research project. The idea is to embed
+a Tcl interpreter and Rivet tempalte parser in a
+FastCGI application.
 
 %prep
 %setup -q -n %{name}-%{version}
